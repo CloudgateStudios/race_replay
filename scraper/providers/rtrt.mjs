@@ -125,7 +125,7 @@ async function fetchAllSplitsAtPoint(
   return map;
 }
 
-async function discoverTimingPoints(eventId, appid, token, forcedPoints) {
+export async function discoverTimingPoints(eventId, appid, token, forcedPoints) {
   if (forcedPoints) {
     console.log(`\n📋 Using specified points: ${forcedPoints.join(", ")}`);
     return forcedPoints.map((name, i) => ({

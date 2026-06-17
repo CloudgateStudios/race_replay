@@ -36,7 +36,7 @@ const CANONICAL_SPLITS = [
  * Parses a TOD value that may be a float (seconds since midnight) or an
  * "HH:MM:SS" / "H:MM:SS" string. Returns seconds as a float, or null.
  */
-function parseTod(v) {
+export function parseTod(v) {
   if (v == null || v === "") return null;
   if (typeof v === "number") return v;
   const parts = String(v).split(":").map(Number);
@@ -50,7 +50,7 @@ function parseTod(v) {
  * labels, matching case-insensitively (e.g. "Start TOD" matches "START TOD").
  * Returns an ordered array of { legName, key } for each split that is present.
  */
-function resolveSplitKeys(record) {
+export function resolveSplitKeys(record) {
   const lowerKeys = Object.fromEntries(
     Object.keys(record).map((k) => [k.toLowerCase(), k])
   );
@@ -105,7 +105,7 @@ async function fetchRaceResultData(apiUrl) {
  * @param {number}   raceDateMs  - Milliseconds since Unix epoch for race date midnight UTC
  * @returns {{ athletes: object[], legNames: string[], startEpochs: Map }}
  */
-function transformAthletes(records, raceDateMs) {
+export function transformAthletes(records, raceDateMs) {
   const athletes = [];
   const startEpochs = new Map();
   const raceDateSec = raceDateMs / 1000;

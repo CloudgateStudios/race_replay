@@ -94,6 +94,12 @@ export default function RootLayout({
                 Races
               </Link>
               <Link
+                href="/request-race"
+                className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
+              >
+                Request a Race
+              </Link>
+              <Link
                 href="/about"
                 className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
               >

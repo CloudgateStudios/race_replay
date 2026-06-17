@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
   await transporter.sendMail({
     from: `"Race Replay" <${process.env.GMAIL_USER}>`,
-    to: "racerequest@racereplay.app",
+    to: "race-request@racereplay.app",
     subject: `Race Request: ${raceName.trim()}`,
     text: [
       `Race Name: ${raceName.trim()}`,

@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-
-export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { Gender } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -34,18 +32,21 @@ const SORTABLE_COLUMNS: Record<string, object> = {
 
 export async function generateMetadata({ params }: Props) {
   const { slug, year } = await params;
-  const race = await prisma.race.findUnique({ where: { slug } });
-  if (!race) return { title: "Not Found" };
-  const event = await prisma.event.findUnique({
-    where: { raceId_year: { raceId: race.id, year: parseInt(year, 10) } },
+  const event = await prisma.event.findFirst({
+    where: { year: parseInt(year, 10), race: { slug } },
+    include: { race: { select: { name: true } } },
   });
-  const totalAthletes = event ? await prisma.athlete.count({ where: { eventId: event.id } }) : 0;
-  const finisherCount = event
-    ? await prisma.athlete.count({ where: { eventId: event.id, status: "FIN" } })
-    : 0;
+  if (!event) return { title: "Not Found" };
+  const athleteStats = await prisma.athlete.groupBy({
+    by: ["status"],
+    where: { eventId: event.id },
+    _count: { id: true },
+  });
+  const totalAthletes = athleteStats.reduce((sum, g) => sum + g._count.id, 0);
+  const finisherCount = athleteStats.find((g) => g.status === "FIN")?._count.id ?? 0;
   const finishPct = totalAthletes > 0 ? ((finisherCount / totalAthletes) * 100).toFixed(1) : "0";
-  const title = `${race.name} ${year}`;
-  const description = `${race.name} ${year} results — ${totalAthletes.toLocaleString()} athletes, ${finisherCount.toLocaleString()} finishers (${finishPct}%). See leg-by-leg passing data on Race Replay.`;
+  const title = `${event.race.name} ${year}`;
+  const description = `${event.race.name} ${year} results — ${totalAthletes.toLocaleString()} athletes, ${finisherCount.toLocaleString()} finishers (${finishPct}%). See leg-by-leg passing data on Race Replay.`;
   return {
     title,
     description,
@@ -70,14 +71,16 @@ export default async function EventPage({ params, searchParams }: Props) {
   const dir = (sp.dir ?? "asc") as "asc" | "desc";
   const page = Math.max(1, parseInt(sp.page ?? "1", 10));
 
-  const race = await prisma.race.findUnique({ where: { slug } });
-  if (!race) notFound();
-
-  const event = await prisma.event.findUnique({
-    where: { raceId_year: { raceId: race.id, year } },
-    include: { segments: { orderBy: { displayOrder: "asc" } } },
+  const event = await prisma.event.findFirst({
+    where: { year, race: { slug } },
+    include: {
+      race: { select: { id: true, name: true, slug: true } },
+      segments: { orderBy: { displayOrder: "asc" } },
+    },
   });
   if (!event) notFound();
+
+  const race = event.race;
 
   // Build where clause
   const where = {
@@ -96,32 +99,27 @@ export default async function EventPage({ params, searchParams }: Props) {
   const orderBy = SORTABLE_COLUMNS[sort] ?? { overallRank: "asc" as const };
   const orderByWithDir = Object.fromEntries(Object.entries(orderBy).map(([k]) => [k, dir]));
 
-  // Per-segment athlete counts (non-null timeSeconds = athlete reached that gate)
-  const segmentCounts = await Promise.all(
-    event.segments.map((seg) =>
-      prisma.athleteSegment
-        .count({ where: { segmentId: seg.id, timeSeconds: { not: null } } })
-        .then((count) => ({ segmentId: seg.id, name: seg.name, isFinish: seg.isFinish, count }))
-    )
-  );
-
-  const totalAthletes = await prisma.athlete.count({ where: { eventId: event.id } });
-  const finisherCount = await prisma.athlete.count({
-    where: { eventId: event.id, status: "FIN" },
+  // Single groupBy replaces N individual count queries for each segment
+  const segmentCountsRaw = await prisma.athleteSegment.groupBy({
+    by: ["segmentId"],
+    where: { segmentId: { in: event.segments.map((s) => s.id) }, timeSeconds: { not: null } },
+    _count: { id: true },
   });
+  const segmentCounts = event.segments.map((seg) => ({
+    segmentId: seg.id,
+    name: seg.name,
+    isFinish: seg.isFinish,
+    count: segmentCountsRaw.find((r) => r.segmentId === seg.id)?._count.id ?? 0,
+  }));
 
-  // Only show the Division column if at least one athlete has a non-blank division.
-  // Check against empty string and whitespace-only values so trimming in the
-  // ingest script doesn't leave phantom filter categories.
-  const hasDivisions = await prisma.athlete
-    .count({
-      where: {
-        eventId: event.id,
-        division: { not: "" },
-        AND: { division: { not: { equals: " " } } },
-      },
-    })
-    .then((n) => n > 0);
+  // Single groupBy replaces two separate athlete count queries
+  const athleteStatsByStatus = await prisma.athlete.groupBy({
+    by: ["status"],
+    where: { eventId: event.id },
+    _count: { id: true },
+  });
+  const totalAthletes = athleteStatsByStatus.reduce((sum, g) => sum + g._count.id, 0);
+  const finisherCount = athleteStatsByStatus.find((g) => g.status === "FIN")?._count.id ?? 0;
 
   const [total, athletes, genders, divisions] = await Promise.all([
     prisma.athlete.count({ where }),
@@ -155,6 +153,7 @@ export default async function EventPage({ params, searchParams }: Props) {
       .then((r) => r.map((a) => a.division).filter(Boolean)),
   ]);
 
+  const hasDivisions = divisions.some((d) => d && d.trim() !== "");
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   function pageUrl(p: number) {

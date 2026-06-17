@@ -1,22 +1,29 @@
 import Link from "next/link";
 import { ArrowRight, TrendingUp } from "lucide-react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { RaceTypeIcon } from "@/components/race-type-icon";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+
+const getLatestEvents = unstable_cache(
+  () =>
+    prisma.event.findMany({
+      take: 3,
+      orderBy: { date: "desc" },
+      include: {
+        race: true,
+        _count: { select: { athletes: true } },
+      },
+    }),
+  ["latest-events"],
+  { revalidate: 3600 }
+);
 
 export default async function HomePage() {
-  // Latest 3 events by date across all races
-  const latestEvents = await prisma.event.findMany({
-    take: 3,
-    orderBy: { date: "desc" },
-    include: {
-      race: true,
-      _count: { select: { athletes: true } },
-    },
-  });
+  const latestEvents = await getLatestEvents();
 
   return (
     <div>

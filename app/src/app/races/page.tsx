@@ -1,9 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { SearchInput } from "./search-input";
 
-export const dynamic = "force-dynamic";
+const getRaces = unstable_cache(
+  () =>
+    prisma.race.findMany({
+      include: {
+        events: {
+          orderBy: { year: "desc" },
+          select: {
+            year: true,
+            type: true,
+            _count: { select: { athletes: true } },
+          },
+        },
+      },
+    }),
+  ["all-races"],
+  { revalidate: 3600 }
+);
 
 export const metadata: Metadata = {
   title: "All Races",
@@ -60,18 +77,7 @@ export default async function RacesPage({
   ) as SortKey;
   const sortDir: SortDir = dir === "desc" ? "desc" : "asc";
 
-  const races = await prisma.race.findMany({
-    include: {
-      events: {
-        orderBy: { year: "desc" },
-        select: {
-          year: true,
-          type: true,
-          _count: { select: { athletes: true } },
-        },
-      },
-    },
-  });
+  const races = await getRaces();
 
   const rows = races.map((race) => ({
     slug: race.slug,

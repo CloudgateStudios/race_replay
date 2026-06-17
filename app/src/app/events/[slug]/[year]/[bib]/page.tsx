@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatSeconds, netColor, netLabel } from "@/lib/formatting";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 import { Badge } from "@/components/ui/badge";
 import { ShareButton } from "@/components/share-button";
 import {

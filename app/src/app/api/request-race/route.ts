@@ -21,17 +21,18 @@ export async function POST(req: Request) {
 
   try {
     await transporter.sendMail({
-    from: `"Race Replay" <${process.env.GMAIL_USER}>`,
-    to: "race-request@racereplay.app",
-    subject: `Race Request: ${raceName.trim()}`,
-    text: [
-      `Race Name: ${raceName.trim()}`,
-      `Year: ${raceYear}`,
-      `Race URL: ${raceUrl?.trim() || "Not provided"}`,
-      `Requester Email: ${requesterEmail?.trim() || "Not provided"}`,
-      `Notes:\n${notes?.trim() || "None"}`,
-    ].join("\n\n"),
-    html: `
+      from: `"Race Replay" <${process.env.GMAIL_USER}>`,
+      replyTo: requesterEmail?.trim() || undefined,
+      to: "race-request@racereplay.app",
+      subject: `Race Request: ${raceName.trim()}`,
+      text: [
+        `Race Name: ${raceName.trim()}`,
+        `Year: ${raceYear}`,
+        `Race URL: ${raceUrl?.trim() || "Not provided"}`,
+        `Requester Email: ${requesterEmail?.trim() || "Not provided"}`,
+        `Notes:\n${notes?.trim() || "None"}`,
+      ].join("\n\n"),
+      html: `
       <h2>New Race Request</h2>
       <table cellpadding="6" style="border-collapse:collapse">
         <tr><td><strong>Race Name</strong></td><td>${raceName.trim()}</td></tr>
@@ -44,7 +45,10 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("Failed to send race request email:", err);
-    return NextResponse.json({ error: "Failed to send email. Please try again later." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to send email. Please try again later." },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

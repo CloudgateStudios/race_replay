@@ -25,11 +25,12 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const { slug, year } = await params;
   const { a, b } = await searchParams;
   const race = await prisma.race.findUnique({ where: { slug } });
-  if (!race || !a || !b) return { title: "Compare Athletes" };
+  if (!race || !a || !b) return { title: "Compare Athletes", robots: { index: false } };
   const title = `Compare · ${race.name} ${year}`;
   return {
     title,
     description: `Side-by-side leg breakdown for bibs ${a} and ${b} at ${race.name} ${year}.`,
+    robots: { index: false },
   };
 }
 

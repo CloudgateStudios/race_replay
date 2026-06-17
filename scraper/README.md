@@ -1,45 +1,48 @@
 # Race Replay — Scraper
 
-Standalone scripts to fetch race data from RTRT.me, inspect timing point structure,
-and run the leg-by-leg physical passing algorithm.
+Standalone scripts to fetch race data from timing providers, inspect timing
+point structure, and run the leg-by-leg physical passing algorithm.
 
 Run these locally before ingesting data into the database.
 
 ---
 
-## Scripts
+## Structure
 
-| Script               | Purpose                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `racereplay.mjs`     | Fetch splits from RTRT.me, run passing algorithm, write `_passing.csv`       |
-| `check-legs.mjs`     | Preview timing points and segment names for an event before scraping         |
-| `test-algorithm.mjs` | Unit tests for the passing algorithm — run before trusting a new race output |
+```
+scraper/
+  racereplay.mjs        ← entry point; dispatches to a provider via --provider
+  check-legs.mjs        ← preview RTRT timing points before scraping
+  test-algorithm.mjs    ← unit tests for the passing algorithm
+  lib/
+    algorithm.mjs       ← FenwickTree, passing algorithm, normalizeAthletes
+    cache.mjs           ← split file read/write helpers (RTRT only)
+    display.mjs         ← ProgressDisplay
+    format.mjs          ← parseTime, fmtTimeLong, fmtElapsed, cleanLabel
+    output.mjs          ← printReport, buildOutputCSV
+  providers/
+    rtrt.mjs            ← RTRT.me (existing races)
+    raceresult.mjs      ← raceresult.com / myrace.ai
+  data/                 ← output CSVs and cached split JSON files
+```
 
 ---
 
 ## Typical workflow
 
-### Step 1 — Find the RTRT event ID and app ID
+### RTRT races (track.rtrt.me)
+
+#### Step 1 — Find the event ID and app ID
 
 1. Go to **https://track.rtrt.me** and find the race
 2. The URL will be `https://track.rtrt.me/e/<EVENT-ID>` — the last segment is the event ID
-3. Find the app ID: view page source (`Cmd+U`) and search for `"appid"`:
-   ```json
-   "appid":"<id>"
-   ```
-   The app ID is required for every run — it is not stored in the source code.
+3. View page source (`Cmd+U`) and search for `"appid"` to find the app ID
 
-### Step 2 — Check the legs before scraping
+#### Step 2 — Check the legs before scraping
 
 Always run `check-legs.mjs` first to confirm the timing point structure matches
 what you expect. This is especially important for older events that may have
 extra intermediate checkpoints that need to be collapsed.
-
-```bash
-node scraper/check-legs.mjs <event-id> [--appid <id>]
-```
-
-Examples:
 
 ```bash
 node scraper/check-legs.mjs <event-id> --appid <id>
@@ -53,45 +56,97 @@ the bottom is what gets stored in the database.
 
 If you see extra intermediate run splits (e.g. `Run 1.7mi, Run 14.8mi`) that
 means the event has additional published checkpoints. Use the `--points` flag
-in step 3 to force only the canonical checkpoints.
+in the next step to force only the canonical checkpoints.
 
-### Step 3 — Run the scraper
+#### Step 3 — Run the scraper
 
 ```bash
-node scraper/racereplay.mjs <event-id> [--appid <id>] [--points A,B,C,D,E,F]
+node scraper/racereplay.mjs <event-id> --appid <id> [options]
 ```
 
 Examples:
 
 ```bash
 # Standard run
-node scraper/racereplay.mjs <event-id> --appid <id>
+node scraper/racereplay.mjs IRM-ARIZONA-2025 --appid <id>
 
 # Force canonical checkpoints (use when check-legs shows extra splits)
-node scraper/racereplay.mjs <event-id> --appid <id> --points START,SWIM,T1,BIKE,T2,FINISH
+node scraper/racereplay.mjs IRM-ARIZONA-2025 --appid <id> --points START,SWIM,T1,BIKE,T2,FINISH
+
+# Re-fetch everything, ignoring cached split files
+node scraper/racereplay.mjs IRM-ARIZONA-2025 --appid <id> --fresh
 ```
 
-**All flags:**
+**RTRT flags:**
 
 ```
 --appid <id>          RTRT tracker app ID. Required.
 --points A,B,C        Force specific timing points — use to collapse extra splits
---output-dir <dir>    Write output here (default: scraper/data/)
 --concurrency <n>     Parallel point fetches (default: 4)
 --fresh               Ignore cached split files and re-fetch everything
---verify              Re-run algorithm on existing cache without re-fetching
 ```
 
-**Output:** `scraper/data/<EVENT-ID>_passing.csv`
+Split data is cached to `scraper/data/` as `<EVENT-ID>_splits_<POINT>.json`,
+making a run resumable if interrupted.
 
 **Timing:** ~300ms/page + 5s between timing points. A 24K-athlete event with
 3 timing points takes ~18 minutes.
+
+---
+
+### raceresult races (myrace.ai)
+
+No event ID or app ID needed — just the myrace.ai results page URL and the
+race date. All splits arrive in a single API call; no caching is used.
+
+```bash
+node scraper/racereplay.mjs <slug> --provider raceresult \
+  --url https://myrace.ai/races/<slug>/results \
+  --race-date <YYYY-MM-DD>
+```
+
+Examples:
+
+```bash
+# Auto-discover the API URL from the myrace.ai page
+node scraper/racereplay.mjs cim-2025 --provider raceresult \
+  --url https://myrace.ai/races/cim-2025/results \
+  --race-date 2025-12-07
+
+# Skip discovery and use a direct raceresult.com API URL
+node scraper/racereplay.mjs cim-2025 --provider raceresult \
+  --api-url https://api.raceresult.com/374113/IMU05T607SLSY3BXCUM067VWT8HGBEHA \
+  --race-date 2025-12-07
+```
+
+**raceresult flags:**
+
+```
+--url <url>           myrace.ai results page — API endpoint is discovered automatically
+--api-url <url>       Direct raceresult.com API URL (skips page discovery)
+--race-date <date>    Race date as YYYY-MM-DD. Required. Converts time-of-day
+                      split values to Unix epoch timestamps.
+```
+
+---
+
+### Shared flags (both providers)
+
+```
+--output-dir <dir>    Write output here (default: scraper/data/)
+--verify              After the O(n log n) algorithm, also run the O(n²)
+                      reference and diff the results
+```
+
+**Output:** `scraper/data/<slug>_passing.csv`
+
+---
 
 ### Step 4 — Ingest into the database
 
 ```bash
 cd app
-npx tsx scripts/ingest.ts ../scraper/data/<EVENT-ID>_passing.csv \
+npx tsx scripts/ingest.ts ../scraper/data/<slug>_passing.csv \
   --slug <slug> \
   --race-name "<Race Name>" \
   --year <YYYY> \
@@ -106,7 +161,7 @@ segment name normalization (`FINISH → Run`) are loaded automatically from
 Add `--dry-run` to validate columns and preview segment names without writing:
 
 ```bash
-npx tsx scripts/ingest.ts ../scraper/data/<EVENT-ID>_passing.csv \
+npx tsx scripts/ingest.ts ../scraper/data/<slug>_passing.csv \
   --dry-run --slug <slug>
 ```
 
@@ -114,11 +169,10 @@ npx tsx scripts/ingest.ts ../scraper/data/<EVENT-ID>_passing.csv \
 
 ## Segment name normalization
 
-The scraper outputs the raw RTRT timing point names as column headers
-(e.g. `FINISH Time`). The ingest script renames these to canonical names
-before storing them in the database.
+The scraper outputs timing point names as column headers (e.g. `FINISH Time`).
+The ingest script renames these to canonical names before storing them.
 
-Current mapping for all IRONMAN events (defined in `app/scripts/races.config.json`):
+Current mapping for IRONMAN events (defined in `app/scripts/races.config.json`):
 
 | CSV column | Stored as |
 |------------|-----------|
@@ -128,22 +182,42 @@ Current mapping for all IRONMAN events (defined in `app/scripts/races.config.jso
 | T2         | T2        |
 | FINISH     | Run       |
 
-This ensures all years of the same race use consistent segment names even
-when RTRT adds or removes intermediate checkpoints year to year.
+This ensures all years of the same race use consistent segment names even when
+a provider adds or removes intermediate checkpoints year to year.
 
 ---
 
-## Known event IDs
+## Known events
 
-| Race                     | Year | Event ID                   | Notes                               |
-| ------------------------ | ---- | -------------------------- | ----------------------------------- |
-| IM Wisconsin             | 2022 | IRM-WISCONSIN-2022         | Use `--points START,SWIM,T1,BIKE,T2,FINISH` |
-| IM Wisconsin             | 2023 | IRM-WISCONSIN-2023         |                                     |
-| IM Wisconsin             | 2024 | IRM-WISCONSIN-2024         |                                     |
-| IM 70.3 Chattanooga      | 2026 | IRM-CHATTANOOGA703-2026    |                                     |
-| IM 70.3 Oceanside        | 2025 | IRM-OCEANSIDE703-2025      |                                     |
-| IM 70.3 Oceanside        | 2026 | IRM-OCEANSIDE703-2026      |                                     |
-| BofA Shamrock Shuffle    | 2026 | BASS2026                   | Uses a different app ID             |
+### RTRT provider
+
+| Race                     | Year | Event ID                   | Notes                                          |
+| ------------------------ | ---- | -------------------------- | ---------------------------------------------- |
+| IM Wisconsin             | 2022 | IRM-WISCONSIN-2022         | Use `--points START,SWIM,T1,BIKE,T2,FINISH`    |
+| IM Wisconsin             | 2023 | IRM-WISCONSIN-2023         |                                                |
+| IM Wisconsin             | 2024 | IRM-WISCONSIN-2024         |                                                |
+| IM 70.3 Chattanooga      | 2026 | IRM-CHATTANOOGA703-2026    |                                                |
+| IM 70.3 Oceanside        | 2025 | IRM-OCEANSIDE703-2025      |                                                |
+| IM 70.3 Oceanside        | 2026 | IRM-OCEANSIDE703-2026      |                                                |
+| BofA Shamrock Shuffle    | 2026 | BASS2026                   | Uses a different app ID                        |
+
+### raceresult provider
+
+| Race                     | Year | myrace.ai slug | Race date  |
+| ------------------------ | ---- | -------------- | ---------- |
+| California International | 2024 | cim-2024       | 2024-12-08 |
+| California International | 2025 | cim-2025       | 2025-12-07 |
+
+---
+
+## Unit tests
+
+```bash
+node scraper/test-algorithm.mjs
+```
+
+Runs assertions on a hand-crafted dataset including DNF handling. Run before
+trusting output from a new race.
 
 ---
 
@@ -153,9 +227,9 @@ In a time-trial (TT) start race, athletes enter one at a time. A "physical
 pass" requires knowing who was actually ahead on course — which requires each
 athlete's individual start time.
 
-Race Replay uses per-athlete start epoch times from RTRT.me to compute the
-absolute clock time each athlete was at every checkpoint. Comparing two
-athletes' absolute checkpoint times directly answers "who was physically ahead?"
+Race Replay uses per-athlete start epoch times to compute the absolute clock
+time each athlete was at every checkpoint. Comparing two athletes' absolute
+checkpoint times directly answers "who was physically ahead?"
 
 **Key identity:**
 
@@ -167,20 +241,20 @@ epochTime[any_point] = startEpoch + chipSplitSeconds
 `startEpoch + swimSecs` as the "after" — the same before→after comparison
 used by every other leg.
 
----
-
-## Unit tests
-
-```bash
-node scraper/test-algorithm.mjs
-```
-
-21 assertions on a hand-crafted 6-athlete dataset including DNF handling.
-Run this before trusting output from a new race.
+For raceresult races, time-of-day split values (either `HH:MM:SS` strings or
+float seconds-since-midnight) are converted to Unix epoch using `--race-date`.
 
 ---
 
 ## Verified results
+
+### 2025 California International Marathon (cim-2025)
+
+8,815 athletes · 10 legs · all invariants pass ✅
+
+### 2024 California International Marathon (cim-2024)
+
+8,369 athletes · 10 legs · all invariants pass ✅
 
 ### 2026 Bank of America Shamrock Shuffle (BASS2026)
 

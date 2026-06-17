@@ -44,6 +44,21 @@ jobs:
       run:
         working-directory: app
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: racereplay
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v6
 
@@ -76,6 +91,11 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      - name: Apply database schema
+        run: npx prisma db push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/racereplay
 
       - name: Build
         run: npm run build

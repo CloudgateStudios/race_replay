@@ -142,6 +142,59 @@ export function computePassingDataFast(athletes, legNames, hasWaveData = false) 
       continue;
     }
 
+    // ── Wave start, leg 1: gun-start within each wave + cross-wave Fenwick ──────
+    // Athletes in the same wave all start simultaneously, so any relative ordering
+    // at the first checkpoint is a pass. Athletes from different waves are compared
+    // by absolute clock position (waveOffset + chip time = cumPositions).
+    if (hasWaveData && leg.name === legNames[0]) {
+      const byWave = new Map();
+      for (const a of eligible) {
+        const w = a.waveOffset;
+        if (!byWave.has(w)) byWave.set(w, []);
+        byWave.get(w).push(a);
+      }
+
+      // Step 1: within each wave, apply gun-start formula
+      for (const [, waveAthletes] of byWave) {
+        const waveAfterMap = buildRankMap(waveAthletes, leg.getAfter);
+        for (const x of waveAthletes) {
+          const xAfter = waveAfterMap.get(x.bib);
+          if (xAfter == null) continue;
+          const wn = waveAfterMap.size;
+          results.get(x.bib)[leg.name].gained += wn - xAfter;
+          results.get(x.bib)[leg.name].lost += xAfter - 1;
+        }
+      }
+
+      // Step 2: count cross-wave passes using a Fenwick tree indexed by wave order
+      if (byWave.size > 1) {
+        const sortedWaves = [...byWave.keys()].sort((a, b) => a - b);
+        const W = sortedWaves.length;
+        const waveIndex = new Map(sortedWaves.map((w, i) => [w, i + 1]));
+        // prefixTotal[i] = eligible athletes in waves 0..i-1 (1-indexed)
+        const prefixTotal = [0];
+        for (const w of sortedWaves)
+          prefixTotal.push(prefixTotal[prefixTotal.length - 1] + byWave.get(w).length);
+
+        const sortedByCum = [...eligible].sort(
+          (a, b) =>
+            leg.getAfter(a) - leg.getAfter(b) ||
+            String(a.bib).localeCompare(String(b.bib))
+        );
+        const crossFenwick = new FenwickTree(W);
+        for (const x of sortedByCum) {
+          const wi = waveIndex.get(x.waveOffset);
+          // Later-wave athletes already in tree arrived before x → x lost to them
+          results.get(x.bib)[leg.name].lost += crossFenwick.query(W) - crossFenwick.query(wi);
+          // Earlier-wave athletes not yet in tree → x arrived before them → x gained
+          results.get(x.bib)[leg.name].gained += prefixTotal[wi - 1] - crossFenwick.query(wi - 1);
+          crossFenwick.update(wi, 1);
+        }
+      }
+
+      continue;
+    }
+
     const beforeMap = buildRankMap(athletes, leg.getBefore);
     eligible = eligible.filter((a) => beforeMap.has(a.bib));
     if (eligible.length === 0) continue;
@@ -231,6 +284,10 @@ export function computePassingData(athletes, legNames, hasWaveData = false) {
         if (yBefore == null || yAfter == null) continue;
 
         if (isGunStart) {
+          if (yAfter > xAfter) legData.gained++;
+          else if (yAfter < xAfter) legData.lost++;
+        } else if (hasWaveData && leg.name === legNames[0] && x.waveOffset === y.waveOffset) {
+          // Same wave on leg 1: both started simultaneously, so any ordering = pass
           if (yAfter > xAfter) legData.gained++;
           else if (yAfter < xAfter) legData.lost++;
         } else {

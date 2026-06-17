@@ -2,134 +2,36 @@
 /**
  * test-algorithm.mjs
  *
- * Runs the passing algorithm against a known toy dataset and asserts
- * exact expected results. Run before using with real data.
+ * Verifies the passing algorithm against hand-crafted datasets with known
+ * expected results. Covers gun-start, mass-start wave, and mixed wave scenarios.
  *
- * Usage: node scripts/test-algorithm.mjs
+ * Usage: node scraper/test-algorithm.mjs
  */
 
-// ─── Copy of the algorithm (kept in sync with analyze-passing.mjs) ────────────
+import { computePassingDataFast, computePassingData } from "./lib/algorithm.mjs";
 
-function buildRankMap(athletes, getTime) {
-  const eligible = athletes.filter((a) => getTime(a) != null);
-  const sorted = [...eligible].sort((a, b) => getTime(a) - getTime(b));
-  const map = new Map();
-  sorted.forEach((a, i) => map.set(a.bib, i + 1));
-  return map;
-}
+const LEGS = ["SWIM", "T1", "BIKE", "T2", "RUN"];
 
-function computePassingData(athletes) {
-  const legs = [
-    { name: "swim",  getBefore: null,           getAfter: (a) => a.cumAfterSwim  },
-    { name: "t1",    getBefore: (a) => a.cumAfterSwim,  getAfter: (a) => a.cumAfterT1   },
-    { name: "bike",  getBefore: (a) => a.cumAfterT1,   getAfter: (a) => a.cumAfterBike  },
-    { name: "t2",    getBefore: (a) => a.cumAfterBike,  getAfter: (a) => a.cumAfterT2   },
-    { name: "run",   getBefore: (a) => a.cumAfterT2,   getAfter: (a) => a.cumFinish     },
-  ];
-
-  const results = new Map();
-  for (const a of athletes) {
-    results.set(a.bib, {
-      swim: { gained: 0, lost: 0, passedBibs: [], passedByBibs: [] },
-      t1:   { gained: 0, lost: 0, passedBibs: [], passedByBibs: [] },
-      bike: { gained: 0, lost: 0, passedBibs: [], passedByBibs: [] },
-      t2:   { gained: 0, lost: 0, passedBibs: [], passedByBibs: [] },
-      run:  { gained: 0, lost: 0, passedBibs: [], passedByBibs: [] },
-    });
-  }
-
-  for (const leg of legs) {
-    const afterMap = buildRankMap(athletes, leg.getAfter);
-    const eligible = athletes.filter((a) => afterMap.has(a.bib));
-
-    let beforeMap;
-    if (leg.name === "swim") {
-      beforeMap = new Map(eligible.map((a) => [a.bib, 1]));
+/**
+ * Build a test athlete with cumPositions pre-computed from leg seconds.
+ * Mirrors what normalizeAthletes() produces.
+ */
+function mkAthlete({ bib, waveOffset = 0, swim, t1, bike, t2, run }) {
+  const legSecs = { SWIM: swim, T1: t1, BIKE: bike, T2: t2, RUN: run };
+  const cumPositions = {};
+  let cumChip = 0;
+  for (const leg of LEGS) {
+    const v = legSecs[leg];
+    if (v != null && cumChip !== null) {
+      cumChip += v;
+      cumPositions[leg] = waveOffset + cumChip;
     } else {
-      beforeMap = buildRankMap(athletes, leg.getBefore);
-      eligible.splice(0, eligible.length, ...eligible.filter((a) => beforeMap.has(a.bib)));
-    }
-
-    for (const x of eligible) {
-      const xBefore = beforeMap.get(x.bib);
-      const xAfter  = afterMap.get(x.bib);
-      const legData = results.get(x.bib)[leg.name];
-
-      for (const y of eligible) {
-        if (y.bib === x.bib) continue;
-        const yBefore = beforeMap.get(y.bib);
-        const yAfter  = afterMap.get(y.bib);
-        if (yBefore == null || yAfter == null) continue;
-
-        if (leg.name === "swim") {
-          if (yAfter > xAfter)      { legData.passedBibs.push(y.bib);   legData.gained++; }
-          else if (yAfter < xAfter) { legData.passedByBibs.push(y.bib); legData.lost++; }
-        } else {
-          if (yBefore < xBefore && yAfter > xAfter)      { legData.passedBibs.push(y.bib);   legData.gained++; }
-          else if (yBefore > xBefore && yAfter < xAfter) { legData.passedByBibs.push(y.bib); legData.lost++; }
-        }
-      }
+      cumChip = null;
+      cumPositions[leg] = null;
     }
   }
-
-  return results;
+  return { bib, waveOffset, legSecs, cumPositions };
 }
-
-// ─── Toy Dataset ──────────────────────────────────────────────────────────────
-//
-// 5 athletes with hand-crafted times designed to produce known passing outcomes.
-//
-// Swim times (fastest → slowest):  A(20m) B(21m) C(22m) D(23m) E(24m)
-// After swim rank:                 1       2       3       4       5
-//
-// T1 times:                        E(1m)  D(1m)  C(1m)  B(1m)  A(5m)
-// Cumulative after T1 (swim+T1):   A(25m) B(22m) C(23m) D(24m) E(25m)
-// After T1 rank:                   B=1    C=2    D=3    A/E=4 (tie → sort by bib)
-//
-// Let's use concrete seconds:
-//   A: swim=1200 t1=300 bike=3600 t2=120 run=2700  finish=7920
-//   B: swim=1260 t1=60  bike=3540 t2=120 run=2760  finish=7740
-//   C: swim=1320 t1=60  bike=3480 t2=120 run=2820  finish=7800
-//   D: swim=1380 t1=60  bike=3420 t2=120 run=2880  finish=7860
-//   E: swim=1440 t1=60  bike=3360 t2=120 run=2880  finish=7860  ← ties with D
-//
-// Cumulative snapshots:
-//   After swim:  A=1200  B=1260  C=1320  D=1380  E=1440   ranks: A=1 B=2 C=3 D=4 E=5
-//   After T1:    A=1500  B=1320  C=1380  D=1440  E=1500   ranks: B=1 C=2 D=3 A=4 E=5 (tie A/E → A<E bib)
-//   After bike:  A=5100  B=4860  C=4860  D=4860  E=4860   ranks: B/C/D/E=1-4 A=5
-//   After T2:    A=5220  B=4980  C=4980  D=4980  E=4980   ranks: similar
-//   Finish:      A=7920  B=7740  C=7800  D=7860  E=7860
-//
-// Expected T1 passing (before=swim ranks, after=T1 ranks):
-//   A: swim rank 1 (best), T1 rank 4 → lost to B(2→1), C(3→2), D(4→3)  = 3 passed A during T1
-//   B: swim rank 2, T1 rank 1 → passed A(1→4) = 1 passed by B (gained 1? No...)
-//      Wait, A was rank 1 before T1, rank 4 after T1. B was rank 2 before, rank 1 after.
-//      B passed A (B was behind A, now ahead). So B.gained includes A.
-//   Let's verify: B gains over A(was rank1→rank4) ✓, and C and D stay behind B.
-//
-// This is getting complex for manual verification, let's just check the invariant
-// and a few spot checks.
-
-const athletes = [
-  { bib: "A", name: "Alice",   swimSecs: 1200, t1Secs: 300, bikeSecs: 3600, t2Secs: 120, runSecs: 2700, finishSecs: 7920, status: "FIN" },
-  { bib: "B", name: "Bob",     swimSecs: 1260, t1Secs:  60, bikeSecs: 3540, t2Secs: 120, runSecs: 2760, finishSecs: 7740, status: "FIN" },
-  { bib: "C", name: "Charlie", swimSecs: 1320, t1Secs:  60, bikeSecs: 3480, t2Secs: 120, runSecs: 2820, finishSecs: 7800, status: "FIN" },
-  { bib: "D", name: "Diana",   swimSecs: 1380, t1Secs:  60, bikeSecs: 3420, t2Secs: 120, runSecs: 2880, finishSecs: 7860, status: "FIN" },
-  { bib: "E", name: "Ed",      swimSecs: 1440, t1Secs:  60, bikeSecs: 3360, t2Secs: 120, runSecs: 2880, finishSecs: 7860, status: "FIN" },
-].map((a) => ({
-  ...a,
-  cumAfterSwim:  a.swimSecs,
-  cumAfterT1:    a.swimSecs + a.t1Secs,
-  cumAfterBike:  a.swimSecs + a.t1Secs + a.bikeSecs,
-  cumAfterT2:    a.swimSecs + a.t1Secs + a.bikeSecs + a.t2Secs,
-  cumFinish:     a.finishSecs,
-}));
-
-// ─── Run Algorithm ────────────────────────────────────────────────────────────
-
-const passingMap = computePassingData(athletes);
-
-// ─── Assertions ───────────────────────────────────────────────────────────────
 
 let passed = 0;
 let failed = 0;
@@ -144,104 +46,238 @@ function assert(condition, message) {
   }
 }
 
-console.log("\n═".repeat(60));
-console.log("  Algorithm Tests");
-console.log("═".repeat(60));
-
-// ── Invariant: sum of gained === sum of lost for each leg ─────────────────────
-console.log("\n[1] Invariant: sum(gained) === sum(lost) per leg");
-for (const leg of ["swim", "t1", "bike", "t2", "run"]) {
-  let g = 0, l = 0;
-  for (const d of passingMap.values()) { g += d[leg].gained; l += d[leg].lost; }
-  assert(g === l, `${leg}: gained(${g}) === lost(${l})`);
+function checkInvariant(label, passingMap, legNames) {
+  for (const leg of legNames) {
+    let g = 0,
+      l = 0;
+    for (const d of passingMap.values()) {
+      g += d[leg].gained;
+      l += d[leg].lost;
+    }
+    assert(g === l, `${label} invariant ${leg}: gained(${g}) === lost(${l})`);
+  }
 }
 
-// ── Swim ──────────────────────────────────────────────────────────────────────
-console.log("\n[2] Swim leg (everyone starts equal)");
-// A has swim rank 1 (best) → gained 4 (passed B,C,D,E), lost 0
-assert(passingMap.get("A").swim.gained === 4, "A gained 4 during swim (best swimmer)");
-assert(passingMap.get("A").swim.lost   === 0, "A lost 0 during swim");
-// E has swim rank 5 (worst) → gained 0, lost 4
-assert(passingMap.get("E").swim.gained === 0, "E gained 0 during swim (slowest swimmer)");
-assert(passingMap.get("E").swim.lost   === 4, "E lost 4 during swim");
+// ─── Section 1: Gun-start (no wave data) ─────────────────────────────────────
+//
+// 5 athletes, all waveOffset=0 (default), hasWaveData=false.
+//
+// Swim times (fastest→slowest): A(1200) B(1260) C(1320) D(1380) E(1440)
+// T1 times: A(300) B(60) C(60) D(60) E(60)  — A has a terrible T1
+// Cumulative after T1: A=1500 B=1320 C=1380 D=1440 E=1500
+// After T1 ranks: B=1 C=2 D=3 A=4 E=5  (tie A/E at 1500, bib "A" < "E")
+//
+// Bike times: A(3600) B(3540) C(3480) D(3420) E(3360) — E fastest on bike
+// Cumulative after bike: A=5100 B=4860 C=4860 D=4860 E=4860
+// After bike ranks: B=1 C=2 D=3 E=4 A=5  (B/C/D/E tied at 4860, bib order)
 
-// ── T1 ────────────────────────────────────────────────────────────────────────
-console.log("\n[3] T1 leg");
-// After swim: A=1, B=2, C=3, D=4, E=5
-// A has a terrible T1 (300s vs 60s for others)
-// After T1 cumulative: A=1500, B=1320, C=1380, D=1440, E=1500
-// After T1 ranks: B=1, C=2, D=3, A=4 (tie with E at 1500 but A < E bib), E=5
-// A was rank 1 before T1, rank 4 after → A lost to B, C, D (3 athletes passed A)
-assert(passingMap.get("A").t1.lost === 3, "A lost 3 positions in T1 (slow transition)");
-assert(passingMap.get("A").t1.gained === 0, "A gained 0 in T1");
-// B was rank 2 before T1, rank 1 after → B passed A (who was ahead before, behind after)
-assert(passingMap.get("B").t1.gained === 1, "B gained 1 in T1 (passed A)");
-assert(passingMap.get("B").t1.passedBibs.includes("A"), "B passed A in T1");
+console.log("\n═".repeat(60));
+console.log("  Section 1: Gun-start (no wave data)");
+console.log("═".repeat(60));
 
-// ── Bike ──────────────────────────────────────────────────────────────────────
-console.log("\n[4] Bike leg");
-// After T1: B=1, C=2, D=3, A=4, E=5
-// Bike times: E=3360, D=3420, C=3480, B=3540, A=3600 (E fastest, A slowest)
-// Cumulative after bike: B=4860, C=4860, D=4860, E=4860, A=5100
-// All of B/C/D/E end up tied at 4860. A is last at 5100.
-// A was rank 4 before, rank 5 after → A lost 1 (E passed A)
-assert(passingMap.get("A").bike.lost >= 1, "A lost at least 1 on bike (E is faster)");
-// E was rank 5 before bike, moves to tie at 4860 alongside B,C,D
-// E should pass A (who was rank 4 before, rank 5 after... wait A was rank 4 and E was rank 5)
-// E ends up rank 4 (tied with B,C,D at 4860, but tie broken: B<C<D<E bib order → E=4)
-// Actually: B=1, C=2, D=3, E=4, A=5 after bike
-// E: was rank 5 before, rank 4 after → E gained 1 (passed A)
-assert(passingMap.get("E").bike.gained >= 1, "E gained at least 1 on bike");
+const gunAthletes = [
+  mkAthlete({ bib: "A", swim: 1200, t1: 300, bike: 3600, t2: 120, run: 2700 }),
+  mkAthlete({ bib: "B", swim: 1260, t1: 60,  bike: 3540, t2: 120, run: 2760 }),
+  mkAthlete({ bib: "C", swim: 1320, t1: 60,  bike: 3480, t2: 120, run: 2820 }),
+  mkAthlete({ bib: "D", swim: 1380, t1: 60,  bike: 3420, t2: 120, run: 2880 }),
+  mkAthlete({ bib: "E", swim: 1440, t1: 60,  bike: 3360, t2: 120, run: 2880 }),
+];
 
-// ── DNF handling ──────────────────────────────────────────────────────────────
-console.log("\n[5] DNF athlete excluded from legs after drop");
-// Frank: mid-pack swimmer (1280s → rank 3 between B and C), catastrophic T1 (600s)
-// → drops to last after T1, then DNFs on bike.
-// Swim rank 3 means A(1) and B(2) are faster → Frank lost 2 in swim.
-// After T1 rank 6 (last). Was rank 3 before T1 → C(4→2), D(5→3), E(6→5) pass him → lost 3 in T1.
-const dnfAthlete = {
-  bib: "F", name: "Frank", swimSecs: 1280, t1Secs: 600,
-  bikeSecs: null, t2Secs: null, runSecs: null, finishSecs: null,
-  status: "DNF",
-  cumAfterSwim: 1280,
-  cumAfterT1: 1880,  // 1280+600 — slower than everyone
-  cumAfterBike: null,
-  cumAfterT2: null,
-  cumFinish: null,
-};
-const athletesWithDNF = [...athletes, dnfAthlete];
-const mapWithDNF = computePassingData(athletesWithDNF);
-const f = mapWithDNF.get("F");
-// Frank should have swim and T1 data but no bike/run data
-// Frank rank 3 swimmer → A(1) and B(2) were faster → lost 2 in swim
-// Frank rank 6 after T1 → C(4→2), D(5→3), E(6→5) all pass him → lost 3 in T1
-assert(f.swim.lost === 2, "DNF athlete F lost 2 in swim (rank 3, A and B faster)");
-assert(f.swim.gained === 3, "DNF athlete F gained 3 in swim (passed C, D, E)");
-assert(f.t1.lost === 3,   "DNF athlete F lost 3 in T1 (C, D, E passed him)");
-assert(f.bike.gained === 0 && f.bike.lost === 0, "DNF athlete F has zero bike passing (excluded after DNF)");
-assert(f.t2.gained  === 0 && f.t2.lost  === 0, "DNF athlete F has zero T2 passing (excluded after DNF)");
-assert(f.run.gained === 0 && f.run.lost === 0, "DNF athlete F has zero run passing (excluded after DNF)");
+const gunMap = computePassingDataFast(gunAthletes, LEGS, false);
+
+console.log("\n[1.1] Invariant: sum(gained) === sum(lost) per leg");
+checkInvariant("gun-start", gunMap, LEGS);
+
+console.log("\n[1.2] Swim leg (all start equal → gun-start formula)");
+assert(gunMap.get("A").SWIM.gained === 4, "A gained 4 during swim (rank 1)");
+assert(gunMap.get("A").SWIM.lost   === 0, "A lost 0 during swim");
+assert(gunMap.get("E").SWIM.gained === 0, "E gained 0 during swim (rank 5)");
+assert(gunMap.get("E").SWIM.lost   === 4, "E lost 4 during swim");
+
+console.log("\n[1.3] T1 leg (A has 300s T1 vs 60s for others)");
+assert(gunMap.get("A").T1.lost   === 3, "A lost 3 in T1 (B, C, D pass)");
+assert(gunMap.get("A").T1.gained === 0, "A gained 0 in T1");
+assert(gunMap.get("B").T1.gained === 1, "B gained 1 in T1 (passed A)");
+
+console.log("\n[1.4] Bike leg (E fastest → gains on A)");
+assert(gunMap.get("A").BIKE.lost   >= 1, "A lost at least 1 on bike");
+assert(gunMap.get("E").BIKE.gained >= 1, "E gained at least 1 on bike");
+
+console.log("\n[1.5] Fast algorithm matches reference O(n²) — gun-start");
+const gunRef = computePassingData(gunAthletes, LEGS, false);
+let gunMismatch = 0;
+for (const a of gunAthletes) {
+  for (const leg of LEGS) {
+    const f = gunMap.get(a.bib)[leg];
+    const r = gunRef.get(a.bib)[leg];
+    if (f.gained !== r.gained || f.lost !== r.lost) {
+      console.log(`    MISMATCH bib=${a.bib} ${leg}: fast=${f.gained}/${f.lost} ref=${r.gained}/${r.lost}`);
+      gunMismatch++;
+    }
+  }
+}
+assert(gunMismatch === 0, "Fast and reference agree on all legs (gun-start)");
+
+// ─── Section 2: DNF athlete ───────────────────────────────────────────────────
+console.log("\n[2] DNF athlete excluded from legs after drop");
+const dnfAthlete = mkAthlete({ bib: "F", swim: 1280, t1: 600, bike: null, t2: null, run: null });
+const dnfAthletes = [...gunAthletes, dnfAthlete];
+const dnfMap = computePassingDataFast(dnfAthletes, LEGS, false);
+const fDnf = dnfMap.get("F");
+assert(fDnf.SWIM.lost   === 2, "F lost 2 in swim (A and B faster)");
+assert(fDnf.SWIM.gained === 3, "F gained 3 in swim (passed C, D, E)");
+assert(fDnf.T1.lost     === 3, "F lost 3 in T1 (C, D, E pass him)");
+assert(fDnf.BIKE.gained === 0 && fDnf.BIKE.lost === 0, "F has zero bike passing (excluded after DNF)");
+assert(fDnf.T2.gained   === 0 && fDnf.T2.lost   === 0, "F has zero T2 passing (excluded after DNF)");
+assert(fDnf.RUN.gained  === 0 && fDnf.RUN.lost  === 0, "F has zero run passing (excluded after DNF)");
+
+// ─── Section 3: Mass-start wave (single wave, all same waveOffset) ────────────
+//
+// 4 athletes, all waveOffset=0, hasWaveData=true.
+// Correct behavior: identical to gun-start since they all started simultaneously.
+
+console.log("\n═".repeat(60));
+console.log("  Section 3: Mass-start (all same waveOffset, hasWaveData=true)");
+console.log("═".repeat(60));
+
+const massAthletes = [
+  mkAthlete({ bib: "P1", waveOffset: 0, swim: 200, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "P2", waveOffset: 0, swim: 400, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "P3", waveOffset: 0, swim: 600, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "P4", waveOffset: 0, swim: 800, t1: null, bike: null, t2: null, run: null }),
+];
+
+const massMap = computePassingDataFast(massAthletes, ["SWIM"], true);
+
+console.log("\n[3.1] Invariant");
+checkInvariant("mass-start", massMap, ["SWIM"]);
+
+console.log("\n[3.2] Gun-start semantics within the single wave");
+assert(massMap.get("P1").SWIM.gained === 3, "P1 (fastest) gained 3");
+assert(massMap.get("P1").SWIM.lost   === 0, "P1 lost 0");
+assert(massMap.get("P4").SWIM.gained === 0, "P4 (slowest) gained 0");
+assert(massMap.get("P4").SWIM.lost   === 3, "P4 lost 3");
+assert(massMap.get("P2").SWIM.gained === 2, "P2 gained 2");
+assert(massMap.get("P2").SWIM.lost   === 1, "P2 lost 1");
+
+console.log("\n[3.3] Fast algorithm matches reference — mass-start");
+const massRef = computePassingData(massAthletes, ["SWIM"], true);
+let massMismatch = 0;
+for (const a of massAthletes) {
+  const f = massMap.get(a.bib).SWIM;
+  const r = massRef.get(a.bib).SWIM;
+  if (f.gained !== r.gained || f.lost !== r.lost) {
+    console.log(`    MISMATCH bib=${a.bib}: fast=${f.gained}/${f.lost} ref=${r.gained}/${r.lost}`);
+    massMismatch++;
+  }
+}
+assert(massMismatch === 0, "Fast and reference agree (mass-start)");
+
+// ─── Section 4: Mixed waves — mass-start Pros + wave-start AGs ───────────────
+//
+// Scenario: 2 Pros (waveOffset=0), 2 AGs (waveOffset=300).
+//
+// cumPositions[SWIM]:
+//   Pro2: 0 + 300 = 300   (fastest swimmer in race)
+//   AG1:  300 + 100 = 400 (fast AG, overtakes Pro1)
+//   Pro1: 0 + 600 = 600
+//   AG2:  300 + 600 = 900 (slow AG)
+//
+// Expected within-wave:
+//   Pro group: Pro2 rank1→ G=1/L=0; Pro1 rank2→ G=0/L=1
+//   AG  group: AG1  rank1→ G=1/L=0; AG2  rank2→ G=0/L=1
+//
+// Expected cross-wave:
+//   AG1 (cumPos=400) overtook Pro1 (cumPos=600) → AG1.gained+1, Pro1.lost+1
+//   No other cross-wave passes
+//
+// Final: Pro2 G=1/L=0  Pro1 G=0/L=2  AG1 G=2/L=0  AG2 G=0/L=1
+// Invariant: gained=3, lost=3 ✓
+
+console.log("\n═".repeat(60));
+console.log("  Section 4: Mixed waves (mass-start Pros + wave-start AGs)");
+console.log("═".repeat(60));
+
+const mixedAthletes = [
+  mkAthlete({ bib: "Pro1", waveOffset: 0,   swim: 600, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "Pro2", waveOffset: 0,   swim: 300, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "AG1",  waveOffset: 300, swim: 100, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "AG2",  waveOffset: 300, swim: 600, t1: null, bike: null, t2: null, run: null }),
+];
+
+const mixedMap = computePassingDataFast(mixedAthletes, ["SWIM"], true);
+
+console.log("\n[4.1] Invariant");
+checkInvariant("mixed-wave", mixedMap, ["SWIM"]);
+
+console.log("\n[4.2] Within-Pro-wave gun-start");
+assert(
+  mixedMap.get("Pro2").SWIM.gained === 1 && mixedMap.get("Pro2").SWIM.lost === 0,
+  "Pro2 (fastest Pro) G=1/L=0"
+);
+assert(
+  mixedMap.get("Pro1").SWIM.gained === 0 && mixedMap.get("Pro1").SWIM.lost === 2,
+  "Pro1 (slow Pro, passed by Pro2 + AG1) G=0/L=2"
+);
+
+console.log("\n[4.3] Cross-wave pass: AG1 overtakes Pro1");
+assert(mixedMap.get("AG1").SWIM.gained === 2, "AG1 G=2 (beat AG2 within-wave + overtook Pro1 cross-wave)");
+assert(mixedMap.get("AG1").SWIM.lost   === 0, "AG1 L=0 (Pro2 was already ahead, not a pass)");
+
+console.log("\n[4.4] AG2 sees no cross-wave gains");
+assert(mixedMap.get("AG2").SWIM.gained === 0, "AG2 gained 0");
+assert(mixedMap.get("AG2").SWIM.lost   === 1, "AG2 lost 1 (to AG1 within-wave)");
+
+console.log("\n[4.5] Fast algorithm matches reference — mixed waves");
+const mixedRef = computePassingData(mixedAthletes, ["SWIM"], true);
+let mixedMismatch = 0;
+for (const a of mixedAthletes) {
+  const f = mixedMap.get(a.bib).SWIM;
+  const r = mixedRef.get(a.bib).SWIM;
+  if (f.gained !== r.gained || f.lost !== r.lost) {
+    console.log(`    MISMATCH bib=${a.bib}: fast=${f.gained}/${f.lost} ref=${r.gained}/${r.lost}`);
+    mixedMismatch++;
+  }
+}
+assert(mixedMismatch === 0, "Fast and reference agree (mixed waves)");
+
+// ─── Section 5: Regression — bib string-sort tiebreaker bug ─────────────────
+//
+// Before this fix, buildRankMap used String.localeCompare on bibs as a tiebreaker
+// for same-waveOffset athletes. In string sort "9" > "66" > "60" > "1", so
+// single-digit bibs were placed LAST in a mass-start group, corrupting swim counts.
+//
+// Test: bibs "1", "7", "66", all waveOffset=0.
+// Swim times: bib7=fastest, bib66=middle, bib1=slowest.
+// Correct (gun-start): each gained/lost based only on final swim rank.
+// Buggy behavior: bib7 would be placed last before swim → inflated gained count.
+
+console.log("\n═".repeat(60));
+console.log("  Section 5: Regression — bib string-sort tiebreaker bug");
+console.log("═".repeat(60));
+
+const bibAthletes = [
+  mkAthlete({ bib: "1",  waveOffset: 0, swim: 3000, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "66", waveOffset: 0, swim: 2000, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "7",  waveOffset: 0, swim: 1000, t1: null, bike: null, t2: null, run: null }),
+];
+
+const bibMap = computePassingDataFast(bibAthletes, ["SWIM"], true);
+
+console.log("\n[5.1] Bib 7 (fastest swimmer) wins within the wave");
+assert(bibMap.get("7").SWIM.gained  === 2, "bib7 gained 2 (fastest: passes both others)");
+assert(bibMap.get("7").SWIM.lost    === 0, "bib7 lost 0");
+assert(bibMap.get("1").SWIM.gained  === 0, "bib1 gained 0 (slowest swimmer)");
+assert(bibMap.get("1").SWIM.lost    === 2, "bib1 lost 2");
+assert(bibMap.get("66").SWIM.gained === 1, "bib66 gained 1 (middle)");
+assert(bibMap.get("66").SWIM.lost   === 1, "bib66 lost 1 (middle)");
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
 console.log("\n" + "─".repeat(60));
 console.log(`  ${passed} passed, ${failed} failed`);
 if (failed === 0) {
-  console.log("  ✅ All tests passed — algorithm is correct\n");
+  console.log("  ✅ All tests passed\n");
 } else {
-  console.log("  ❌ Some tests failed — check algorithm\n");
+  console.log("  ❌ Some tests failed\n");
   process.exit(1);
 }
-
-// ── Show full passing map for inspection ─────────────────────────────────────
-console.log("Full passing breakdown for toy dataset:\n");
-for (const a of athletes) {
-  const d = passingMap.get(a.bib);
-  console.log(`  ${a.name} (${a.bib})`);
-  for (const leg of ["swim","t1","bike","t2","run"]) {
-    const { gained, lost, passedBibs, passedByBibs } = d[leg];
-    if (gained > 0 || lost > 0) {
-      console.log(`    ${leg.padEnd(5)} +${gained}/-${lost}  passed:[${passedBibs.join(",")}]  passedBy:[${passedByBibs.join(",")}]`);
-    }
-  }
-}
-console.log();

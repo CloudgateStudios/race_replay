@@ -31,8 +31,10 @@ posthog
 prerender
 prerendering
 prisma
+myrace
 raceid
 racereplay
+raceresult
 rpad
 segmentid
 serp

@@ -2,11 +2,8 @@ import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
-import { Suspense } from "react";
 import pkg from "../../package.json";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { PostHogProvider } from "@/components/posthog-provider";
-import { PostHogPageView } from "@/components/posthog-pageview";
 import "./globals.css";
 
 const barlow = Barlow({
@@ -65,11 +62,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background text-foreground flex min-h-full flex-col">
-        <PostHogProvider>
-          <Suspense>
-            <PostHogPageView />
-          </Suspense>
-          {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
           <header className="bg-card/80 sticky top-0 z-10 border-b backdrop-blur-sm">
             <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-[clamp(1.5rem,5vw,5rem)]">
               {/* Logo */}
@@ -146,7 +139,6 @@ export default function RootLayout({
               </div>
             </div>
           </footer>
-        </PostHogProvider>
       </body>
     </html>
   );

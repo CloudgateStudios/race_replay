@@ -23,6 +23,10 @@ updates:
         dependency-type: development
         patterns:
           - "*"
+      dependencies:
+        dependency-type: production
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /

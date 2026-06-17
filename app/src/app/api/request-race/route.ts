@@ -19,7 +19,8 @@ export async function POST(req: Request) {
     },
   });
 
-  await transporter.sendMail({
+  try {
+    await transporter.sendMail({
     from: `"Race Replay" <${process.env.GMAIL_USER}>`,
     to: "race-request@racereplay.app",
     subject: `Race Request: ${raceName.trim()}`,
@@ -40,7 +41,11 @@ export async function POST(req: Request) {
         <tr><td><strong>Notes</strong></td><td style="white-space:pre-wrap">${notes?.trim() || "None"}</td></tr>
       </table>
     `,
-  });
+    });
+  } catch (err) {
+    console.error("Failed to send race request email:", err);
+    return NextResponse.json({ error: "Failed to send email. Please try again later." }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true });
 }

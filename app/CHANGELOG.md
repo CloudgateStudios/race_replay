@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.11.0](https://github.com/CloudgateStudios/race_replay/compare/0.10.0...0.11.0) (2026-06-17)
+
+### Features
+
+- provider-based scraper architecture + raceresult.com (myrace.ai) support ([#104](https://github.com/CloudgateStudios/race_replay/issues/104)) ([f1987ed](https://github.com/CloudgateStudios/race_replay/commit/f1987ed0ef3b884902a942874463b34e095bd3b4)), closes [#103](https://github.com/CloudgateStudios/race_replay/issues/103) [#103](https://github.com/CloudgateStudios/race_replay/issues/103)
+- Request a Race form with email notification ([#103](https://github.com/CloudgateStudios/race_replay/issues/103)) ([f7de89a](https://github.com/CloudgateStudios/race_replay/commit/f7de89abe1ce7d5e53ec493e97d86f5f8b815723))
+
+### Bug Fixes
+
+- add robots.txt and noindex to stop crawlers hammering /compare ([#106](https://github.com/CloudgateStudios/race_replay/issues/106)) ([70c2fdf](https://github.com/CloudgateStudios/race_replay/commit/70c2fdf2c4db00a85ed1c78347d40f589475f139))
+
 ## [0.10.0](https://github.com/CloudgateStudios/race_replay/compare/0.9.3...0.10.0) (2026-06-17)
 
 ### [0.9.3](https://github.com/CloudgateStudios/race_replay/compare/0.9.2...0.9.3) (2026-06-12)

@@ -16,7 +16,7 @@ export default function RequestRacePage() {
     const data = {
       raceName: (form.elements.namedItem("raceName") as HTMLInputElement).value,
       raceYear: (form.elements.namedItem("raceYear") as HTMLInputElement).value,
-raceUrl: (form.elements.namedItem("raceUrl") as HTMLInputElement).value,
+      raceUrl: (form.elements.namedItem("raceUrl") as HTMLInputElement).value,
       requesterEmail: (form.elements.namedItem("requesterEmail") as HTMLInputElement).value,
       notes: (form.elements.namedItem("notes") as HTMLTextAreaElement).value,
     };
@@ -90,7 +90,7 @@ raceUrl: (form.elements.namedItem("raceUrl") as HTMLInputElement).value,
           />
         </div>
 
-<div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="raceUrl" className="text-sm font-semibold">
             Race website or results link
           </label>
@@ -105,7 +105,8 @@ raceUrl: (form.elements.namedItem("raceUrl") as HTMLInputElement).value,
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="requesterEmail" className="text-sm font-semibold">
-            Your email <span className="text-muted-foreground font-normal">(optional — for follow-up)</span>
+            Your email{" "}
+            <span className="text-muted-foreground font-normal">(optional — for follow-up)</span>
           </label>
           <input
             id="requesterEmail"
@@ -129,9 +130,7 @@ raceUrl: (form.elements.namedItem("raceUrl") as HTMLInputElement).value,
           />
         </div>
 
-        {status === "error" && (
-          <p className="text-destructive text-sm">{errorMsg}</p>
-        )}
+        {status === "error" && <p className="text-destructive text-sm">{errorMsg}</p>}
 
         <button
           type="submit"

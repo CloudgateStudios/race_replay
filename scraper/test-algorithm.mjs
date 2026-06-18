@@ -272,6 +272,55 @@ assert(bibMap.get("1").SWIM.lost    === 2, "bib1 lost 2");
 assert(bibMap.get("66").SWIM.gained === 1, "bib66 gained 1 (middle)");
 assert(bibMap.get("66").SWIM.lost   === 1, "bib66 lost 1 (middle)");
 
+// ─── Section 6: Bad chip read — later-wave athlete with impossible cumPos ─────
+//
+// Scenario: 2 Pros (waveOffset=0), 1 AG (waveOffset=600) with a corrupted chip
+// that records a 50-second swim — giving cumPos = 600+50 = 650, which is below
+// even the fastest Pro's cumPos of 1000.
+//
+// The bad-chip-read filter should exclude the AG from the cross-wave Fenwick.
+// Result: Pros see no cross-wave losses, AG gets 0 gained/0 lost cross-wave.
+// (Within-wave: Pro1 G=1/L=0, Pro2 G=0/L=1; AG gets G=0/L=0 in its solo wave.)
+
+console.log("\n═".repeat(60));
+console.log("  Section 6: Bad chip read (impossible cumPos from later wave)");
+console.log("═".repeat(60));
+
+const badChipAthletes = [
+  mkAthlete({ bib: "P1", waveOffset: 0,   swim: 1000, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "P2", waveOffset: 0,   swim: 2000, t1: null, bike: null, t2: null, run: null }),
+  mkAthlete({ bib: "AG", waveOffset: 600, swim: 50,   t1: null, bike: null, t2: null, run: null }),
+];
+// AG cumPos = 600+50 = 650 < P1 cumPos = 1000 → impossible chip read, must be filtered
+
+const badChipMap = computePassingDataFast(badChipAthletes, ["SWIM"], true);
+
+console.log("\n[6.1] Invariant (over valid athletes only; AG has solo wave so no within-wave effect)");
+checkInvariant("bad-chip", badChipMap, ["SWIM"]);
+
+console.log("\n[6.2] Pros are unaffected by the bad AG chip read");
+assert(badChipMap.get("P1").SWIM.gained === 1, "P1 gained 1 (fastest Pro)");
+assert(badChipMap.get("P1").SWIM.lost   === 0, "P1 lost 0 (bad AG filtered)");
+assert(badChipMap.get("P2").SWIM.gained === 0, "P2 gained 0");
+assert(badChipMap.get("P2").SWIM.lost   === 1, "P2 lost 1 (to P1 only)");
+
+console.log("\n[6.3] Bad-chip AG gets zero cross-wave passing credit");
+assert(badChipMap.get("AG").SWIM.gained === 0, "AG gained 0 (filtered from cross-wave)");
+assert(badChipMap.get("AG").SWIM.lost   === 0, "AG lost 0 (filtered from cross-wave)");
+
+console.log("\n[6.4] Fast algorithm matches reference — bad chip read");
+const badChipRef = computePassingData(badChipAthletes, ["SWIM"], true);
+let badChipMismatch = 0;
+for (const a of badChipAthletes) {
+  const f = badChipMap.get(a.bib).SWIM;
+  const r = badChipRef.get(a.bib).SWIM;
+  if (f.gained !== r.gained || f.lost !== r.lost) {
+    console.log(`    MISMATCH bib=${a.bib}: fast=${f.gained}/${f.lost} ref=${r.gained}/${r.lost}`);
+    badChipMismatch++;
+  }
+}
+assert(badChipMismatch === 0, "Fast and reference agree (bad chip read)");
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 console.log("\n" + "─".repeat(60));
 console.log(`  ${passed} passed, ${failed} failed`);

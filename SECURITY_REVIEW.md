@@ -16,19 +16,19 @@ The application is largely read-only from the user's perspective — no login, n
 
 ## Issue Summary
 
-| # | Severity | Category | File | Issue |
-|---|----------|----------|------|-------|
-| 1 | **HIGH** | Email Injection | `api/request-race/route.ts` | User input interpolated raw into HTML email body |
-| 2 | **HIGH** | Email Header Injection | `api/request-race/route.ts` | `requesterEmail` used as `replyTo` without format validation |
-| 3 | **MEDIUM** | URL / XSS in Email | `api/request-race/route.ts` | `raceUrl` inserted into email `<a href>` without scheme validation |
-| 4 | **MEDIUM** | Input Validation | `api/request-race/route.ts` | `raceYear` not validated on the server (only client-side) |
-| 5 | **MEDIUM** | No Rate Limiting | `api/request-race/route.ts` | POST endpoint has no per-IP throttle — can be abused for email spam |
-| 6 | **MEDIUM** | Missing HTTP Security Headers | `next.config.ts` | No CSP, HSTS, X-Frame-Options, or X-Content-Type-Options |
-| 7 | **MEDIUM** | SSRF in Scraper | `scraper/providers/raceresult.mjs` | `--url` CLI param fetches any URL with no domain allowlist |
-| 8 | **MEDIUM** | Overpermissioned GitHub Token | `.github/workflows/version_increment.yaml` | `ADMIN_TOKEN` (full admin PAT) used just to modify branch rulesets |
-| 9 | **LOW** | Insecure Default Documented | `README.md` | Default PostgreSQL password `postgres` not marked as dev-only |
-| 10 | **LOW** | No Security Policy | repo root | No `SECURITY.md` — no channel for responsible disclosure |
-| 11 | **INFO** | `dangerouslySetInnerHTML` | `app/layout.tsx`, `events/.../page.tsx` | Two uses; both are safe (hardcoded script, JSON.stringify) — worth noting |
+| # | Status | Severity | Category | File | Issue |
+|---|--------|----------|----------|------|-------|
+| 1 | ✅ Fixed | **HIGH** | Email Injection | `api/request-race/route.ts` | User input interpolated raw into HTML email body |
+| 2 | ✅ Fixed | **HIGH** | Email Header Injection | `api/request-race/route.ts` | `requesterEmail` used as `replyTo` without format validation |
+| 3 | ✅ Fixed | **MEDIUM** | URL / XSS in Email | `api/request-race/route.ts` | `raceUrl` inserted into email `<a href>` without scheme validation |
+| 4 | ⬜ Open | **MEDIUM** | Input Validation | `api/request-race/route.ts` | `raceYear` not validated on the server (only client-side) |
+| 5 | ⬜ Open | **MEDIUM** | No Rate Limiting | `api/request-race/route.ts` | POST endpoint has no per-IP throttle — can be abused for email spam |
+| 6 | ⬜ Open | **MEDIUM** | Missing HTTP Security Headers | `next.config.ts` | No CSP, HSTS, X-Frame-Options, or X-Content-Type-Options |
+| 7 | ⬜ Open | **MEDIUM** | SSRF in Scraper | `scraper/providers/raceresult.mjs` | `--url` CLI param fetches any URL with no domain allowlist |
+| 8 | ⬜ Open | **MEDIUM** | Overpermissioned GitHub Token | `.github/workflows/version_increment.yaml` | `ADMIN_TOKEN` (full admin PAT) used just to modify branch rulesets |
+| 9 | ⬜ Open | **LOW** | Insecure Default Documented | `README.md` | Default PostgreSQL password `postgres` not marked as dev-only |
+| 10 | ⬜ Open | **LOW** | No Security Policy | repo root | No `SECURITY.md` — no channel for responsible disclosure |
+| 11 | ⬜ Open | **INFO** | `dangerouslySetInnerHTML` | `app/layout.tsx`, `events/.../page.tsx` | Two uses; both are safe (hardcoded script, JSON.stringify) — worth noting |
 
 ---
 
@@ -36,7 +36,7 @@ The application is largely read-only from the user's perspective — no login, n
 
 ---
 
-### 1. HTML Injection in Email Body — HIGH
+### 1. ✅ HTML Injection in Email Body — HIGH
 
 **File:** `app/src/app/api/request-race/route.ts` (~lines 35–44)
 
@@ -76,7 +76,7 @@ html: `
 
 ---
 
-### 2. Email Header Injection via `replyTo` — HIGH
+### 2. ✅ Email Header Injection via `replyTo` — HIGH
 
 **File:** `app/src/app/api/request-race/route.ts` (~line 25)
 
@@ -103,7 +103,7 @@ if (requesterEmail && !emailRegex.test(requesterEmail.trim())) {
 
 ---
 
-### 3. Unvalidated URL Scheme in Email Href — MEDIUM
+### 3. ✅ Unvalidated URL Scheme in Email Href — MEDIUM
 
 **File:** `app/src/app/api/request-race/route.ts` (~line 40)
 
@@ -388,16 +388,16 @@ Both usages are safe as written: the theme script is hardcoded, and `JSON.string
 
 ## Prioritized Action Plan
 
-| Priority | # | Action | Effort |
-|----------|---|--------|--------|
-| 🔴 Do now | 1 | Escape HTML in email body (`html-escaper` or `he`) | 30 min |
-| 🔴 Do now | 2 | Validate `requesterEmail` format before using as `replyTo` | 15 min |
-| 🔴 Do now | 3 | Validate `raceUrl` scheme before embedding in email href | 15 min |
-| 🟡 This sprint | 4 | Add `raceYear` server-side range validation | 10 min |
-| 🟡 This sprint | 5 | Add security headers to `next.config.ts` | 30 min |
-| 🟡 This sprint | 6 | Add rate limiting to `/api/request-race` (Vercel Firewall rule or Upstash) | 1–2 hrs |
-| 🟡 This sprint | 7 | Create `SECURITY.md` with a responsible disclosure contact | 15 min |
-| 🟢 Next sprint | 8 | Replace `ADMIN_TOKEN` PAT with a fine-grained PAT or GitHub App | 2–4 hrs |
-| 🟢 Next sprint | 9 | Add URL domain allowlist to scraper's `discoverApiUrl()` | 20 min |
-| 🟢 When convenient | 10 | Add dev-only warning to README's Docker instructions | 5 min |
-| ℹ️ Optional | 11 | Replace theme-script `dangerouslySetInnerHTML` with `<Script>` component | 30 min |
+| Priority | # | Action | Effort | Status |
+|----------|---|--------|--------|--------|
+| 🔴 Do now | 1 | Escape HTML in email body (`html-escaper` or `he`) | 30 min | ✅ Done |
+| 🔴 Do now | 2 | Validate `requesterEmail` format before using as `replyTo` | 15 min | ✅ Done |
+| 🔴 Do now | 3 | Validate `raceUrl` scheme before embedding in email href | 15 min | ✅ Done |
+| 🟡 This sprint | 4 | Add `raceYear` server-side range validation | 10 min | ⬜ Open |
+| 🟡 This sprint | 5 | Add security headers to `next.config.ts` | 30 min | ⬜ Open |
+| 🟡 This sprint | 6 | Add rate limiting to `/api/request-race` (Vercel Firewall rule or Upstash) | 1–2 hrs | ⬜ Open |
+| 🟡 This sprint | 7 | Create `SECURITY.md` with a responsible disclosure contact | 15 min | ⬜ Open |
+| 🟢 Next sprint | 8 | Replace `ADMIN_TOKEN` PAT with a fine-grained PAT or GitHub App | 2–4 hrs | ⬜ Open |
+| 🟢 Next sprint | 9 | Add URL domain allowlist to scraper's `discoverApiUrl()` | 20 min | ⬜ Open |
+| 🟢 When convenient | 10 | Add dev-only warning to README's Docker instructions | 5 min | ⬜ Open |
+| ℹ️ Optional | 11 | Replace theme-script `dangerouslySetInnerHTML` with `<Script>` component | 30 min | ⬜ Open |

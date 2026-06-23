@@ -15,15 +15,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@base-ui/react": "^1.5.0",
+    "@base-ui/react": "^1.6.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
-    "lucide-react": "^1.20.0",
+    "lucide-react": "^1.21.0",
     "next": "16.2.9",
-    "nodemailer": "^9.0.0",
+    "nodemailer": "^9.0.1",
     "prisma": "^7.8.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^25",
+    "@types/node": "^26",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",

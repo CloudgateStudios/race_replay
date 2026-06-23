@@ -23,7 +23,7 @@ The application is largely read-only from the user's perspective — no login, n
 | 3 | ✅ Fixed | **MEDIUM** | URL / XSS in Email | `api/request-race/route.ts` | `raceUrl` inserted into email `<a href>` without scheme validation |
 | 4 | ✅ Fixed | **MEDIUM** | Input Validation | `api/request-race/route.ts` | `raceYear` not validated on the server (only client-side) |
 | 5 | ✅ Fixed | **MEDIUM** | No Rate Limiting | `api/request-race/route.ts` | POST endpoint has no per-IP throttle — can be abused for email spam |
-| 6 | ⬜ Open | **MEDIUM** | Missing HTTP Security Headers | `next.config.ts` | No CSP, HSTS, X-Frame-Options, or X-Content-Type-Options |
+| 6 | ✅ Fixed | **MEDIUM** | Missing HTTP Security Headers | `next.config.ts` | No CSP, HSTS, X-Frame-Options, or X-Content-Type-Options |
 | 7 | ⬜ Open | **MEDIUM** | SSRF in Scraper | `scraper/providers/raceresult.mjs` | `--url` CLI param fetches any URL with no domain allowlist |
 | 8 | ⬜ Open | **MEDIUM** | Overpermissioned GitHub Token | `.github/workflows/version_increment.yaml` | `ADMIN_TOKEN` (full admin PAT) used just to modify branch rulesets |
 | 9 | ⬜ Open | **LOW** | Insecure Default Documented | `README.md` | Default PostgreSQL password `postgres` not marked as dev-only |
@@ -189,7 +189,7 @@ Alternatively, configure Vercel Firewall rules to rate-limit the path `/api/requ
 
 ---
 
-### 6. Missing HTTP Security Headers — MEDIUM
+### 6. ✅ Missing HTTP Security Headers — MEDIUM
 
 **File:** `app/next.config.ts`
 
@@ -394,7 +394,7 @@ Both usages are safe as written: the theme script is hardcoded, and `JSON.string
 | 🔴 Do now | 2 | Validate `requesterEmail` format before using as `replyTo` | 15 min | ✅ Done |
 | 🔴 Do now | 3 | Validate `raceUrl` scheme before embedding in email href | 15 min | ✅ Done |
 | 🟡 This sprint | 4 | Add `raceYear` server-side range validation | 10 min | ✅ Done |
-| 🟡 This sprint | 5 | Add security headers to `next.config.ts` | 30 min | ⬜ Open |
+| 🟡 This sprint | 5 | Add security headers to `next.config.ts` | 30 min | ✅ Done |
 | 🟡 This sprint | 6 | Add rate limiting to `/api/request-race` (in-memory, 5 req/hr per IP) | 1–2 hrs | ✅ Done† |
 | 🟡 This sprint | 7 | Create `SECURITY.md` with a responsible disclosure contact | 15 min | ⬜ Open |
 | 🟢 Next sprint | 8 | Replace `ADMIN_TOKEN` PAT with a fine-grained PAT or GitHub App | 2–4 hrs | ⬜ Open |

@@ -24,10 +24,10 @@ The application is largely read-only from the user's perspective — no login, n
 | 4 | ✅ Fixed | **MEDIUM** | Input Validation | `api/request-race/route.ts` | `raceYear` not validated on the server (only client-side) |
 | 5 | ✅ Fixed | **MEDIUM** | No Rate Limiting | `api/request-race/route.ts` | POST endpoint has no per-IP throttle — can be abused for email spam |
 | 6 | ✅ Fixed | **MEDIUM** | Missing HTTP Security Headers | `next.config.ts` | No CSP, HSTS, X-Frame-Options, or X-Content-Type-Options |
-| 7 | ⬜ Open | **MEDIUM** | SSRF in Scraper | `scraper/providers/raceresult.mjs` | `--url` CLI param fetches any URL with no domain allowlist |
+| 7 | ✅ Fixed | **MEDIUM** | SSRF in Scraper | `scraper/providers/raceresult.mjs` | `--url` CLI param fetches any URL with no domain allowlist |
 | 8 | ⬜ Open | **MEDIUM** | Overpermissioned GitHub Token | `.github/workflows/version_increment.yaml` | `ADMIN_TOKEN` (full admin PAT) used just to modify branch rulesets |
-| 9 | ⬜ Open | **LOW** | Insecure Default Documented | `README.md` | Default PostgreSQL password `postgres` not marked as dev-only |
-| 10 | ⬜ Open | **LOW** | No Security Policy | repo root | No `SECURITY.md` — no channel for responsible disclosure |
+| 9 | ✅ Fixed | **LOW** | Insecure Default Documented | `README.md` | Default PostgreSQL password `postgres` not marked as dev-only |
+| 10 | ✅ Fixed | **LOW** | No Security Policy | repo root | No `SECURITY.md` — no channel for responsible disclosure |
 | 11 | ⬜ Open | **INFO** | `dangerouslySetInnerHTML` | `app/layout.tsx`, `events/.../page.tsx` | Two uses; both are safe (hardcoded script, JSON.stringify) — worth noting |
 
 ---
@@ -243,7 +243,7 @@ export default {
 
 ---
 
-### 7. SSRF in Scraper `--url` Parameter — MEDIUM
+### 7. ✅ SSRF in Scraper `--url` Parameter — MEDIUM
 
 **File:** `scraper/providers/raceresult.mjs` (~lines 72–83)
 
@@ -295,7 +295,7 @@ Additionally, a personal PAT with admin scope is a broad credential — if it is
 
 ---
 
-### 9. Default PostgreSQL Credentials in README — LOW
+### 9. ✅ Default PostgreSQL Credentials in README — LOW
 
 **File:** `README.md` (~lines 96–97, 105)
 
@@ -321,7 +321,7 @@ Add a visible warning immediately before the Docker command:
 
 ---
 
-### 10. No `SECURITY.md` / Vulnerability Disclosure Policy — LOW
+### 10. ✅ No `SECURITY.md` / Vulnerability Disclosure Policy — LOW
 
 **File:** repo root (missing)
 
@@ -396,10 +396,10 @@ Both usages are safe as written: the theme script is hardcoded, and `JSON.string
 | 🟡 This sprint | 4 | Add `raceYear` server-side range validation | 10 min | ✅ Done |
 | 🟡 This sprint | 5 | Add security headers to `next.config.ts` | 30 min | ✅ Done |
 | 🟡 This sprint | 6 | Add rate limiting to `/api/request-race` (in-memory, 5 req/hr per IP) | 1–2 hrs | ✅ Done† |
-| 🟡 This sprint | 7 | Create `SECURITY.md` with a responsible disclosure contact | 15 min | ⬜ Open |
+| 🟡 This sprint | 7 | Create `SECURITY.md` with a responsible disclosure contact | 15 min | ✅ Done |
 | 🟢 Next sprint | 8 | Replace `ADMIN_TOKEN` PAT with a fine-grained PAT or GitHub App | 2–4 hrs | ⬜ Open |
-| 🟢 Next sprint | 9 | Add URL domain allowlist to scraper's `discoverApiUrl()` | 20 min | ⬜ Open |
-| 🟢 When convenient | 10 | Add dev-only warning to README's Docker instructions | 5 min | ⬜ Open |
+| 🟢 Next sprint | 9 | Add URL domain allowlist to scraper's `discoverApiUrl()` | 20 min | ✅ Done |
+| 🟢 When convenient | 10 | Add dev-only warning to README's Docker instructions | 5 min | ✅ Done |
 | ℹ️ Optional | 11 | Replace theme-script `dangerouslySetInnerHTML` with `<Script>` component | 30 min | ⬜ Open |
 
 † Rate limiting is implemented as an in-memory module-level store (5 requests/hour per IP). This resets on serverless cold starts, which is acceptable for this low-traffic form. If abuse becomes an issue, replace with a persistent store such as Vercel KV or Upstash Redis.

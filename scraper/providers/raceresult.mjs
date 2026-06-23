@@ -70,6 +70,10 @@ export function resolveSplitKeys(record) {
  * API URL embedded in the HTML. Returns null if none is found.
  */
 async function discoverApiUrl(myRaceUrl) {
+  const parsed = new URL(myRaceUrl);
+  if (parsed.hostname !== "myrace.ai" && !parsed.hostname.endsWith(".myrace.ai")) {
+    throw new Error(`--url must be a myrace.ai URL, got: ${parsed.hostname}`);
+  }
   console.log(`\n🔍 Discovering raceresult API URL from: ${myRaceUrl}`);
   const res = await fetch(myRaceUrl, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`Failed to fetch myrace.ai page: HTTP ${res.status}`);

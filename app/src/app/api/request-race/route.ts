@@ -22,14 +22,41 @@ function safeHref(raw: string): string {
   return escHtml(raw);
 }
 
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT_MAX = 5;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   const { raceName, raceYear, raceUrl, notes, requesterEmail } = await req.json();
 
   if (!raceName?.trim()) {
     return NextResponse.json({ error: "Race name is required." }, { status: 400 });
   }
-  if (!raceYear) {
-    return NextResponse.json({ error: "Year is required." }, { status: 400 });
+
+  const year = parseInt(String(raceYear), 10);
+  const currentYear = new Date().getFullYear();
+  if (!raceYear || isNaN(year) || year < 1900 || year > currentYear + 2) {
+    return NextResponse.json({ error: "A valid race year is required." }, { status: 400 });
   }
 
   const emailRegex = /^[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+$/;

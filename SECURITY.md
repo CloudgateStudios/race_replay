@@ -10,7 +10,7 @@
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Email security reports to: security@racereplay.app
+Email security reports to: tom@cloudgatestudios.com
 
 Include:
 - A description of the vulnerability

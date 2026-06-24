@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-  // Lazy initializer: reads the class applied by the no-FOUC script in layout.tsx.
-  // This ensures the icon is correct on first render without an extra paint.
+  // Read the same source of truth as theme-init.js so the icon is correct
+  // immediately on the client without waiting for a useEffect paint.
+  // suppressHydrationWarning on the button handles the server/client mismatch
+  // (server always renders false since localStorage is unavailable there).
   const [isDark, setIsDark] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.classList.contains("dark");
+    if (typeof window === "undefined") return false;
+    const stored = localStorage.getItem("theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
 
   // When no manual preference is stored, keep following the system preference
@@ -35,6 +39,7 @@ export function ThemeToggle() {
 
   return (
     <button
+      suppressHydrationWarning
       role="switch"
       aria-checked={isDark}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}

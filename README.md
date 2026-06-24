@@ -89,6 +89,9 @@ Supported event types: `TRIATHLON`, `ROAD_RACE`.
 
 ### Setup
 
+> **Development only.** The credentials below are for local development.
+> Never use `postgres` as a password in staging or production — generate strong, unique credentials for any networked environment.
+
 ```bash
 # 1. Start the local database
 docker run -d \

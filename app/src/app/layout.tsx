@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import Link from "next/link";
 
 import pkg from "../../package.json";
@@ -54,12 +55,7 @@ export default function RootLayout({
       className={`${barlow.variable} ${barlowCondensed.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        {/* Apply theme class before first paint to avoid flash of wrong theme */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(!s&&d))document.documentElement.classList.add('dark');})();`,
-          }}
-        />
+        <Script id="theme-init" strategy="beforeInteractive" src="/theme-init.js" />
       </head>
       <body className="bg-background text-foreground flex min-h-full flex-col">
         {/* ── Header ──────────────────────────────────────────────────────── */}

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.11.1](https://github.com/CloudgateStudios/race_replay/compare/0.11.0...0.11.1) (2026-06-24)
+
+### Bug Fixes
+
+- **security:** add HTTP security headers to Next.js config ([#112](https://github.com/CloudgateStudios/race_replay/issues/112)) ([7564c11](https://github.com/CloudgateStudios/race_replay/commit/7564c1161cf423ca53ec6cc05fcc80b6a4b597c8))
+- **security:** replace dangerouslySetInnerHTML theme script with Script component ([#114](https://github.com/CloudgateStudios/race_replay/issues/114)) ([65a426b](https://github.com/CloudgateStudios/race_replay/commit/65a426b9405c4a97ff3b4953fd3d85d3ee16d308)), closes [#8](https://github.com/CloudgateStudios/race_replay/issues/8)
+- **security:** SSRF allowlist, SECURITY.md, and README dev warning ([#113](https://github.com/CloudgateStudios/race_replay/issues/113)) ([ff86e7d](https://github.com/CloudgateStudios/race_replay/commit/ff86e7d45b5a246987754077add9fc39f7826af9)), closes [#7](https://github.com/CloudgateStudios/race_replay/issues/7) [#10](https://github.com/CloudgateStudios/race_replay/issues/10) [#9](https://github.com/CloudgateStudios/race_replay/issues/9)
+
 ## [0.11.0](https://github.com/CloudgateStudios/race_replay/compare/0.10.0...0.11.0) (2026-06-17)
 
 ### Features

@@ -182,7 +182,9 @@ export default async function EventPage({ params, searchParams }: Props) {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify does not escape "<", so a value containing "</script>"
+        // would break out of this block — escape it for any data source.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* Breadcrumb */}
       <div className="mb-1">

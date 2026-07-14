@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { first } from "@/lib/search-params";
 import { SearchInput } from "./search-input";
 
 const getRaces = unstable_cache(
@@ -69,9 +70,12 @@ function SortHeader({
 export default async function RacesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; dir?: string; q?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { sort, dir, q } = await searchParams;
+  const sp = await searchParams;
+  const sort = first(sp.sort);
+  const dir = first(sp.dir);
+  const q = first(sp.q);
   const sortKey: SortKey = (
     ["name", "type", "years", "athletes"].includes(sort ?? "") ? sort : "name"
   ) as SortKey;

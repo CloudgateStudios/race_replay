@@ -434,6 +434,17 @@ async function main() {
     return;
   }
 
+  // A CSV with no "<Leg> Time" columns is never valid input — without this
+  // guard every athlete would ingest with finishSeconds = 0 (an empty
+  // legTimes array vacuously passes the .every() check below) and no segments.
+  if (rawLegs.length === 0) {
+    console.error(
+      "No leg columns detected (no headers ending in \" Time\") — refusing to ingest. " +
+        "Is this a _passing.csv produced by racereplay.mjs?"
+    );
+    process.exit(1);
+  }
+
   // ── Upsert Race ────────────────────────────────────────────────────────────
   // Metadata fields (location, country, etc.) are only updated when a value is
   // provided — undefined fields are omitted so existing DB values are preserved.

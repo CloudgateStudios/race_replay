@@ -49,6 +49,7 @@ tabular
 tailwindcss
 turbopack
 unvalidated
+upserted
 upserting
 upserts
 woff

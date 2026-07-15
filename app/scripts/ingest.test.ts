@@ -5,6 +5,7 @@ import {
   rowToObj,
   detectLegs,
   timeToSeconds,
+  toTimeString,
   toInt,
   toFloat,
   warnMissingColumns,
@@ -138,6 +139,23 @@ describe("detectLegs", () => {
 });
 
 // ─── timeToSeconds ────────────────────────────────────────────────────────────
+
+describe("toTimeString", () => {
+  it("passes real time strings through, trimmed", () => {
+    expect(toTimeString(" 9:59:59 ")).toBe("9:59:59");
+    expect(toTimeString("1:05")).toBe("1:05");
+  });
+
+  it("treats the scraper's missing-time placeholder as null", () => {
+    expect(toTimeString("--:--:--")).toBeNull();
+  });
+
+  it("treats empty and undefined values as null", () => {
+    expect(toTimeString("")).toBeNull();
+    expect(toTimeString("   ")).toBeNull();
+    expect(toTimeString(undefined)).toBeNull();
+  });
+});
 
 describe("timeToSeconds", () => {
   it("converts mm:ss format", () => {

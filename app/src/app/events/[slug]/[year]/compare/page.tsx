@@ -226,15 +226,19 @@ async function AthletePicker({
             {athletes.map((a) => {
               const isA = a.bib === bibA;
               const isB = a.bib === bibB;
-              // Build the href for clicking this row
-              const nextA = isA ? bibA : (bibA ?? a.bib);
-              const nextB = isA ? bibB : isB ? bibB : bibA ? a.bib : undefined;
-              const href =
-                nextA && nextB
-                  ? `/events/${slug}/${year}/compare?a=${nextA}&b=${nextB}`
-                  : nextA
-                    ? `/events/${slug}/${year}/compare?a=${nextA}`
-                    : `/events/${slug}/${year}/compare?a=${a.bib}`;
+              // Build the href for clicking this row: an already-selected
+              // athlete keeps both slots; otherwise fill the empty A slot
+              // first, then B (replacing B when both are already set).
+              let nextA = bibA;
+              let nextB = bibB;
+              if (!isA && !isB) {
+                if (!bibA) nextA = a.bib;
+                else nextB = a.bib;
+              }
+              const nextParams = new URLSearchParams();
+              if (nextA) nextParams.set("a", nextA);
+              if (nextB) nextParams.set("b", nextB);
+              const href = `/events/${slug}/${year}/compare?${nextParams.toString()}`;
 
               return (
                 <TableRow
@@ -268,7 +272,7 @@ async function AthletePicker({
                         href={href}
                         className="text-muted-foreground hover:text-foreground text-xs transition-colors"
                       >
-                        {!bibA ? "Set as A →" : !bibB ? "Set as B →" : "Swap A →"}
+                        {!bibA ? "Set as A →" : !bibB ? "Set as B →" : "Swap B →"}
                       </Link>
                     )}
                   </TableCell>

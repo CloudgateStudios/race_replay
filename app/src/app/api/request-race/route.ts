@@ -47,7 +47,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const { raceName, raceYear, raceUrl, notes, requesterEmail } = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+  // Coerce non-string JSON values to "" so .trim() calls below can't throw
+  const asString = (v: unknown) => (typeof v === "string" ? v : "");
+  const raceName = asString(body?.raceName);
+  const raceUrl = asString(body?.raceUrl);
+  const notes = asString(body?.notes);
+  const requesterEmail = asString(body?.requesterEmail);
+  const raceYear = body?.raceYear;
 
   if (!raceName?.trim()) {
     return NextResponse.json({ error: "Race name is required." }, { status: 400 });

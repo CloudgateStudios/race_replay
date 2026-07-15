@@ -439,7 +439,7 @@ async function main() {
   // legTimes array vacuously passes the .every() check below) and no segments.
   if (rawLegs.length === 0) {
     console.error(
-      "No leg columns detected (no headers ending in \" Time\") — refusing to ingest. " +
+      'No leg columns detected (no headers ending in " Time") — refusing to ingest. ' +
         "Is this a _passing.csv produced by racereplay.mjs?"
     );
     process.exit(1);

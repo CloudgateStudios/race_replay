@@ -15,12 +15,13 @@ import {
 import { EventFilters } from "./filters";
 import { EventFunnel } from "./funnel";
 import { SortHeader } from "./sort-header";
+import { first, positiveInt } from "@/lib/search-params";
 
 const PAGE_SIZE = 50;
 
 interface Props {
   params: Promise<{ slug: string; year: string }>;
-  searchParams: Promise<Record<string, string>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const SORTABLE_COLUMNS: Record<string, object> = {
@@ -61,15 +62,15 @@ export default async function EventPage({ params, searchParams }: Props) {
   const year = parseInt(yearStr, 10);
   if (isNaN(year)) notFound();
 
-  const q = sp.q?.trim() ?? "";
-  const genderParam = sp.gender ?? "";
+  const q = first(sp.q)?.trim() ?? "";
+  const genderParam = first(sp.gender) ?? "";
   const gender = (Object.values(Gender) as string[]).includes(genderParam)
     ? (genderParam as Gender)
     : null;
-  const division = sp.division ?? "";
-  const sort = sp.sort ?? "rank";
-  const dir = (sp.dir ?? "asc") as "asc" | "desc";
-  const page = Math.max(1, parseInt(sp.page ?? "1", 10));
+  const division = first(sp.division) ?? "";
+  const sort = first(sp.sort) ?? "rank";
+  const dir: "asc" | "desc" = first(sp.dir) === "desc" ? "desc" : "asc";
+  const page = positiveInt(sp.page, 1);
 
   const event = await prisma.event.findFirst({
     where: { year, race: { slug } },
@@ -157,7 +158,11 @@ export default async function EventPage({ params, searchParams }: Props) {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   function pageUrl(p: number) {
-    const params = new URLSearchParams(sp);
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp)) {
+      const v = first(value);
+      if (v != null) params.set(key, v);
+    }
     params.set("page", String(p));
     return `?${params.toString()}`;
   }
@@ -177,7 +182,9 @@ export default async function EventPage({ params, searchParams }: Props) {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify does not escape "<", so a value containing "</script>"
+        // would break out of this block — escape it for any data source.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* Breadcrumb */}
       <div className="mb-1">

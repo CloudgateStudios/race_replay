@@ -66,6 +66,25 @@ export function resolveSplitKeys(record) {
 }
 
 /**
+ * Merges all records into a single template object holding, for each key, the
+ * first parseable TOD value seen across the field. resolveSplitKeys() needs a
+ * record where every split that exists for *anyone* is present and parseable —
+ * using records[0] alone silently dropped legs whenever the first record was a
+ * DNS/DNF with missing splits.
+ */
+export function buildSplitTemplate(records) {
+  const template = {};
+  for (const r of records) {
+    for (const key of Object.keys(r)) {
+      if (template[key] === undefined && parseTod(r[key]) != null) {
+        template[key] = r[key];
+      }
+    }
+  }
+  return template;
+}
+
+/**
  * Scrapes the myrace.ai results page and extracts the first raceresult.com
  * API URL embedded in the HTML. Returns null if none is found.
  */
@@ -114,9 +133,10 @@ export function transformAthletes(records, raceDateMs) {
   const startEpochs = new Map();
   const raceDateSec = raceDateMs / 1000;
 
-  // Resolve which JSON keys are present and map them to canonical leg names
-  const firstRecord = records[0] ?? {};
-  const resolvedSplits = resolveSplitKeys(firstRecord);
+  // Resolve which JSON keys are present and map them to canonical leg names.
+  // Resolve against a template merged from every record, not records[0] —
+  // the first record may be a DNS/DNF missing splits that finishers have.
+  const resolvedSplits = resolveSplitKeys(buildSplitTemplate(records));
   if (resolvedSplits.length < 2) {
     throw new Error(
       `Expected at least 2 TOD split keys in the data; found: ${resolvedSplits.map((s) => s.key).join(", ")}`

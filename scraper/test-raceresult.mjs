@@ -9,7 +9,12 @@
  * Usage: node scraper/test-raceresult.mjs
  */
 
-import { parseTod, resolveSplitKeys, transformAthletes } from "./providers/raceresult.mjs";
+import {
+  parseTod,
+  resolveSplitKeys,
+  transformAthletes,
+  cleanDivision,
+} from "./providers/raceresult.mjs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,6 +124,20 @@ assert(parseTod("0:01:30") === 90,    '"0:01:30" → 90');
 assert(parseTod("45:30") === 2730,    '"45:30" (MM:SS) → 2730');
 assert(parseTod("invalid") === null,  '"invalid" → null');
 assert(parseTod("1:x:00") === null,   '"1:x:00" (NaN part) → null');
+
+// ─── cleanDivision ────────────────────────────────────────────────────────────
+
+console.log("\n═".repeat(60));
+console.log("  cleanDivision");
+console.log("═".repeat(60));
+
+assert(cleanDivision("3. M30-34") === "M30-34",         '"3. M30-34" → "M30-34"');
+assert(cleanDivision("1. M20-24 Podium") === "M20-24",  'strips both place prefix and Podium suffix');
+assert(cleanDivision("M30-34") === "M30-34",            "plain division unchanged (DNF rows)");
+assert(cleanDivision("12. F65-69") === "F65-69",        "multi-digit place stripped");
+assert(cleanDivision("1.") === "",                      'bare place ("1.") → empty');
+assert(cleanDivision("") === "",                        "empty → empty");
+assert(cleanDivision(null) === "",                      "null → empty");
 
 // ─── resolveSplitKeys ─────────────────────────────────────────────────────────
 

@@ -33,6 +33,20 @@ const CANONICAL_SPLITS = [
 ];
 
 /**
+ * Extracts the division name from a raceresult "Division Place" value, which
+ * embeds the athlete's place and an optional "Podium" suffix for finishers:
+ *   "3. M30-34 Podium" → "M30-34"
+ *   "M30-34"           → "M30-34"  (DNF rows carry no place)
+ * The numeric place itself is parsed separately (see parseRank).
+ */
+export function cleanDivision(v) {
+  return String(v ?? "")
+    .replace(/\s+Podium$/, "")
+    .replace(/^\d+\.\s*/, "")
+    .trim();
+}
+
+/**
  * Parses a TOD value that may be a float (seconds since midnight) or an
  * "HH:MM:SS" / "H:MM:SS" string. Returns seconds as a float, or null.
  */
@@ -138,7 +152,7 @@ export function transformAthletes(records, raceDateMs) {
     const g = r.Gender === "M" ? "Male" : r.Gender === "F" ? "Female" : r.Gender;
     if (g) genderTotals.set(g, (genderTotals.get(g) ?? 0) + 1);
     if (r["Division Place"]) {
-      const div = r["Division Place"].replace(/\s+Podium$/, "").trim();
+      const div = cleanDivision(r["Division Place"]);
       if (div) divisionTotals.set(div, (divisionTotals.get(div) ?? 0) + 1);
     }
   }
@@ -189,7 +203,7 @@ export function transformAthletes(records, raceDateMs) {
         })()
       : null;
 
-    const divisionStr = (r["Division Place"] ?? "").replace(/\s+Podium$/, "").trim();
+    const divisionStr = cleanDivision(r["Division Place"]);
 
     // Overall / gender / division rank: raceresult supplies "Place" as "1." etc.
     const parseRank = (v) => {

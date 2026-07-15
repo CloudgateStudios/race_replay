@@ -92,9 +92,7 @@ export async function POST(req: Request) {
   }
 
   for (const [field, max] of Object.entries(MAX_LENGTHS)) {
-    const value = { raceName, raceUrl, requesterEmail, notes }[
-      field as keyof typeof MAX_LENGTHS
-    ];
+    const value = { raceName, raceUrl, requesterEmail, notes }[field as keyof typeof MAX_LENGTHS];
     if (value && value.length > max) {
       return NextResponse.json(
         { error: `${field} must be ${max} characters or fewer.` },

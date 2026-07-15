@@ -154,6 +154,28 @@ const NO_FINISH = { "Start TOD": 28800, "5K TOD": 29920 };
 const noFinishResolved = resolveSplitKeys(NO_FINISH);
 assert(noFinishResolved.every((s) => s.legName !== "FINISH"), "missing key not in result");
 
+// Array input: a split missing from the FIRST record still resolves when a
+// later record has a valid value for it.
+const unionResolved = resolveSplitKeys([
+  { "Start TOD": 28800, "5K TOD": null, "Finish TOD": 37500 },
+  { "Start TOD": 28810, "5K TOD": 29950, "Finish TOD": 38000 },
+]);
+assert(unionResolved.length === 3, "split missing in first record resolves via later records");
+assert(
+  unionResolved.some((s) => s.key === "5K TOD"),
+  "5K TOD resolved from second record"
+);
+
+// Array input: a split null in EVERY record stays excluded
+const allNullResolved = resolveSplitKeys([
+  { "Start TOD": 28800, "5K TOD": null, "Finish TOD": 37500 },
+  { "Start TOD": 28810, "5K TOD": null, "Finish TOD": 38000 },
+]);
+assert(
+  allNullResolved.every((s) => s.key !== "5K TOD"),
+  "split null in all records stays excluded"
+);
+
 // ─── transformAthletes ────────────────────────────────────────────────────────
 
 console.log("\n═".repeat(60));

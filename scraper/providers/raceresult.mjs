@@ -46,19 +46,26 @@ export function parseTod(v) {
 }
 
 /**
- * Resolves which actual JSON keys in a record correspond to the canonical split
- * labels, matching case-insensitively (e.g. "Start TOD" matches "START TOD").
+ * Resolves which actual JSON keys correspond to the canonical split labels,
+ * matching case-insensitively (e.g. "Start TOD" matches "START TOD").
+ * Accepts one record or an array of records: a split resolves when ANY record
+ * has a valid value for it, so one athlete missing a mat (including the first
+ * record) can't silently drop that leg for the whole race.
  * Returns an ordered array of { legName, key } for each split that is present.
  */
-export function resolveSplitKeys(record) {
-  const lowerKeys = Object.fromEntries(
-    Object.keys(record).map((k) => [k.toLowerCase(), k])
-  );
+export function resolveSplitKeys(records) {
+  const list = Array.isArray(records) ? records : [records];
+  const lowerKeys = {};
+  for (const record of list) {
+    for (const k of Object.keys(record)) {
+      lowerKeys[k.toLowerCase()] ??= k;
+    }
+  }
   const resolved = [];
   for (const { label, legName } of CANONICAL_SPLITS) {
     const needle = `${label.toLowerCase()} tod`;
     const actualKey = lowerKeys[needle];
-    if (actualKey !== undefined && parseTod(record[actualKey]) != null) {
+    if (actualKey !== undefined && list.some((r) => parseTod(r[actualKey]) != null)) {
       resolved.push({ legName, key: actualKey });
     }
   }
@@ -114,9 +121,9 @@ export function transformAthletes(records, raceDateMs) {
   const startEpochs = new Map();
   const raceDateSec = raceDateMs / 1000;
 
-  // Resolve which JSON keys are present and map them to canonical leg names
-  const firstRecord = records[0] ?? {};
-  const resolvedSplits = resolveSplitKeys(firstRecord);
+  // Resolve which JSON keys are present and map them to canonical leg names.
+  // Resolved across all records — any single athlete may have missed a mat.
+  const resolvedSplits = resolveSplitKeys(records);
   if (resolvedSplits.length < 2) {
     throw new Error(
       `Expected at least 2 TOD split keys in the data; found: ${resolvedSplits.map((s) => s.key).join(", ")}`

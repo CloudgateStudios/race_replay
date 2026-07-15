@@ -32,8 +32,10 @@ const SORTABLE_COLUMNS: Record<string, object> = {
 
 export async function generateMetadata({ params }: Props) {
   const { slug, year } = await params;
+  const yearNum = parseInt(year, 10);
+  if (Number.isNaN(yearNum)) return { title: "Not Found" };
   const event = await prisma.event.findFirst({
-    where: { year: parseInt(year, 10), race: { slug } },
+    where: { year: yearNum, race: { slug } },
     include: { race: { select: { name: true } } },
   });
   if (!event) return { title: "Not Found" };
@@ -68,8 +70,11 @@ export default async function EventPage({ params, searchParams }: Props) {
     : null;
   const division = sp.division ?? "";
   const sort = sp.sort ?? "rank";
-  const dir = (sp.dir ?? "asc") as "asc" | "desc";
-  const page = Math.max(1, parseInt(sp.page ?? "1", 10));
+  // Query params come from arbitrary URLs (crawlers included) — anything
+  // unexpected falls back to defaults rather than reaching Prisma and 500ing.
+  const dir = sp.dir === "desc" ? "desc" : "asc";
+  const parsedPage = parseInt(sp.page ?? "1", 10);
+  const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 
   const event = await prisma.event.findFirst({
     where: { year, race: { slug } },

@@ -21,10 +21,12 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { slug, year, bib } = await params;
+  const yearNum = parseInt(year, 10);
+  if (Number.isNaN(yearNum)) return { title: "Not Found" };
   const race = await prisma.race.findUnique({ where: { slug } });
   if (!race) return { title: "Not Found" };
   const event = await prisma.event.findUnique({
-    where: { raceId_year: { raceId: race.id, year: parseInt(year, 10) } },
+    where: { raceId_year: { raceId: race.id, year: yearNum } },
   });
   const athlete = event
     ? await prisma.athlete.findUnique({ where: { eventId_bib: { eventId: event.id, bib } } })

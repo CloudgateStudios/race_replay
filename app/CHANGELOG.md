@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.11.3](https://github.com/CloudgateStudios/race_replay/compare/0.11.2...0.11.3) (2026-07-29)
+
 ### [0.11.2](https://github.com/CloudgateStudios/race_replay/compare/0.11.1...0.11.2) (2026-07-15)
 
 ### Features

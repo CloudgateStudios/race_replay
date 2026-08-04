@@ -355,7 +355,9 @@ const EXPECTED_COLS = [
   "Status",
   "Wave Finish Time",
 ];
-const EXPECTED_FINISH_COLS = ["Overall Finish Time"];
+// Either column satisfies the finish-time check — athleteData falls back from
+// "Overall Finish Time" to "Finish Time" (see the finishTime field below).
+const EXPECTED_FINISH_COLS = ["Overall Finish Time", "Finish Time"];
 const EXPECTED_RANK_COLS = ["Overall Rank", "Gender Rank", "Division Rank"];
 
 export function warnMissingColumns(headers: string[]): void {

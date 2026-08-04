@@ -313,6 +313,22 @@ describe("warnMissingColumns", () => {
     expect(messages.some((m) => m.includes("finish times will be empty"))).toBe(false);
     warn.mockRestore();
   });
+
+  it("does not warn about finish time when only Finish Time is present", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnMissingColumns(["Bib", "Name", "Finish Time"]);
+    const messages = warn.mock.calls.map((c) => c[0] as string);
+    expect(messages.some((m) => m.includes("finish times will be empty"))).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("warns when neither finish time column is present", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnMissingColumns(["Bib", "Name"]);
+    const messages = warn.mock.calls.map((c) => c[0] as string);
+    expect(messages.some((m) => m.includes("finish times will be empty"))).toBe(true);
+    warn.mockRestore();
+  });
 });
 
 // ─── toAthleteStatus ──────────────────────────────────────────────────────────

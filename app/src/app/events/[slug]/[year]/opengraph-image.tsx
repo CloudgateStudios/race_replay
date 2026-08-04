@@ -16,11 +16,12 @@ export default async function Image({ params }: Props) {
   const year = parseInt(yearStr, 10);
 
   const race = await prisma.race.findUnique({ where: { slug } });
-  const event = race
-    ? await prisma.event.findUnique({
-        where: { raceId_year: { raceId: race.id, year } },
-      })
-    : null;
+  const event =
+    race && !Number.isNaN(year)
+      ? await prisma.event.findUnique({
+          where: { raceId_year: { raceId: race.id, year } },
+        })
+      : null;
 
   const totalAthletes = event ? await prisma.athlete.count({ where: { eventId: event.id } }) : 0;
   const finisherCount = event

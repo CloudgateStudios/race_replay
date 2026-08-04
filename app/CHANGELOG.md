@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.11.4](https://github.com/CloudgateStudios/race_replay/compare/0.11.3...0.11.4) (2026-08-04)
+
+### Bug Fixes
+
+- correct passing counts for mass-start Pro waves ([#107](https://github.com/CloudgateStudios/race_replay/issues/107)) ([c5192f7](https://github.com/CloudgateStudios/race_replay/commit/c5192f7043d071d58400356c7b0c3f4bd1105a88))
+
+### [0.11.3](https://github.com/CloudgateStudios/race_replay/compare/0.11.2...0.11.3) (2026-07-29)
+
+### [0.11.2](https://github.com/CloudgateStudios/race_replay/compare/0.11.1...0.11.2) (2026-07-15)
+
+### Features
+
+- add sitemap.xml route referenced by robots.txt ([#125](https://github.com/CloudgateStudios/race_replay/issues/125)) ([47b98a7](https://github.com/CloudgateStudios/race_replay/commit/47b98a728a68a7c228ebef22f8c1685b788e7fba))
+
+### Bug Fixes
+
+- 404 race pages that have no events ([#127](https://github.com/CloudgateStudios/race_replay/issues/127)) ([792790f](https://github.com/CloudgateStudios/race_replay/commit/792790f99d8a3fd05656e229eb1929318d5d1afe))
+- escape < in JSON-LD structured data block ([#124](https://github.com/CloudgateStudios/race_replay/issues/124)) ([60b0834](https://github.com/CloudgateStudios/race_replay/commit/60b083436369e1a079bc3a64ee1048e9da5c69b5))
+- guard ingest against empty leg lists and newlines in CSV values ([#129](https://github.com/CloudgateStudios/race_replay/issues/129)) ([a8acf88](https://github.com/CloudgateStudios/race_replay/commit/a8acf886be3cdfe69f23c4f01c452503cbdbf2b1))
+- harden query param parsing against malformed URLs ([#123](https://github.com/CloudgateStudios/race_replay/issues/123)) ([94e01be](https://github.com/CloudgateStudios/race_replay/commit/94e01be3f644fe8fdfcd76d10198fa90a74a2d6f))
+- harden the request-race email endpoint ([#126](https://github.com/CloudgateStudios/race_replay/issues/126)) ([3fd6192](https://github.com/CloudgateStudios/race_replay/commit/3fd6192a2d23af15daf03ecc9a34cc2596b2992f))
+- resolve raceresult splits from all records, not just the first ([#128](https://github.com/CloudgateStudios/race_replay/issues/128)) ([b7ee6c0](https://github.com/CloudgateStudios/race_replay/commit/b7ee6c099d467446968b9f05efc32eb54ab6693a))
+- theme toggle shows wrong state after page refresh ([#115](https://github.com/CloudgateStudios/race_replay/issues/115)) ([4246fa8](https://github.com/CloudgateStudios/race_replay/commit/4246fa8a56a3130abb19fa0776ef58580283e490)), closes [#8](https://github.com/CloudgateStudios/race_replay/issues/8)
+
 ### [0.11.1](https://github.com/CloudgateStudios/race_replay/compare/0.11.0...0.11.1) (2026-06-24)
 
 ### Bug Fixes

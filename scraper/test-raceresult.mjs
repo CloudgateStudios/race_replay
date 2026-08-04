@@ -9,7 +9,13 @@
  * Usage: node scraper/test-raceresult.mjs
  */
 
-import { parseTod, resolveSplitKeys, transformAthletes } from "./providers/raceresult.mjs";
+import {
+  parseTod,
+  resolveSplitKeys,
+  buildSplitTemplate,
+  transformAthletes,
+  cleanDivision,
+} from "./providers/raceresult.mjs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,6 +126,20 @@ assert(parseTod("45:30") === 2730,    '"45:30" (MM:SS) → 2730');
 assert(parseTod("invalid") === null,  '"invalid" → null');
 assert(parseTod("1:x:00") === null,   '"1:x:00" (NaN part) → null');
 
+// ─── cleanDivision ────────────────────────────────────────────────────────────
+
+console.log("\n═".repeat(60));
+console.log("  cleanDivision");
+console.log("═".repeat(60));
+
+assert(cleanDivision("3. M30-34") === "M30-34",         '"3. M30-34" → "M30-34"');
+assert(cleanDivision("1. M20-24 Podium") === "M20-24",  'strips both place prefix and Podium suffix');
+assert(cleanDivision("M30-34") === "M30-34",            "plain division unchanged (DNF rows)");
+assert(cleanDivision("12. F65-69") === "F65-69",        "multi-digit place stripped");
+assert(cleanDivision("1.") === "",                      'bare place ("1.") → empty');
+assert(cleanDivision("") === "",                        "empty → empty");
+assert(cleanDivision(null) === "",                      "null → empty");
+
 // ─── resolveSplitKeys ─────────────────────────────────────────────────────────
 
 console.log("\n═".repeat(60));
@@ -153,6 +173,35 @@ assert(sparseResolved.every((s) => s.key !== "5K TOD"), "5K TOD (null value) not
 const NO_FINISH = { "Start TOD": 28800, "5K TOD": 29920 };
 const noFinishResolved = resolveSplitKeys(NO_FINISH);
 assert(noFinishResolved.every((s) => s.legName !== "FINISH"), "missing key not in result");
+
+// ─── buildSplitTemplate ───────────────────────────────────────────────────────
+
+console.log("\n═".repeat(60));
+console.log("  buildSplitTemplate");
+console.log("═".repeat(60));
+
+// A DNS first record must not hide splits that later records have
+const DNS_FIRST = [
+  { "Start TOD": null, "5K TOD": null, "Finish TOD": null },
+  { "Start TOD": 28800, "5K TOD": 29920, "Finish TOD": 37500 },
+];
+const template = buildSplitTemplate(DNS_FIRST);
+const templateResolved = resolveSplitKeys(template);
+assert(templateResolved.length === 3, "DNS-first records: all 3 splits still resolved");
+assert(
+  templateResolved.some((s) => s.legName === "FINISH"),
+  "DNS-first records: FINISH split present"
+);
+
+// Splits nobody has stay excluded
+const noOneFinished = buildSplitTemplate([
+  { "Start TOD": 28800, "Finish TOD": null },
+  { "Start TOD": 28900, "Finish TOD": null },
+]);
+assert(
+  resolveSplitKeys(noOneFinished).every((s) => s.legName !== "FINISH"),
+  "split with no parseable value in any record stays excluded"
+);
 
 // ─── transformAthletes ────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { first } from "@/lib/search-params";
 import { SearchInput } from "./search-input";
 
 const getRaces = unstable_cache(
@@ -41,20 +42,24 @@ function SortHeader({
   col,
   current,
   dir,
+  q,
   className,
 }: {
   label: string;
   col: SortKey;
   current: SortKey;
   dir: SortDir;
+  q?: string;
   className?: string;
 }) {
   const isActive = current === col;
   const nextDir = isActive && dir === "asc" ? "desc" : "asc";
+  const params = new URLSearchParams({ sort: col, dir: nextDir });
+  if (q) params.set("q", q);
   return (
     <th className={`px-6 py-3 font-semibold ${className ?? ""}`}>
       <Link
-        href={`?sort=${col}&dir=${nextDir}`}
+        href={`?${params.toString()}`}
         className="hover:text-foreground inline-flex items-center gap-1 transition-colors"
       >
         {label}
@@ -69,9 +74,12 @@ function SortHeader({
 export default async function RacesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; dir?: string; q?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { sort, dir, q } = await searchParams;
+  const sp = await searchParams;
+  const sort = first(sp.sort);
+  const dir = first(sp.dir);
+  const q = first(sp.q);
   const sortKey: SortKey = (
     ["name", "type", "years", "athletes"].includes(sort ?? "") ? sort : "name"
   ) as SortKey;
@@ -120,20 +128,22 @@ export default async function RacesPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground border-b text-left">
-                <SortHeader label="Race" col="name" current={sortKey} dir={sortDir} />
+                <SortHeader label="Race" col="name" current={sortKey} dir={sortDir} q={q} />
                 <SortHeader
                   label="Type"
                   col="type"
                   current={sortKey}
                   dir={sortDir}
+                  q={q}
                   className="hidden sm:table-cell"
                 />
-                <SortHeader label="Years" col="years" current={sortKey} dir={sortDir} />
+                <SortHeader label="Years" col="years" current={sortKey} dir={sortDir} q={q} />
                 <SortHeader
                   label="Entries"
                   col="athletes"
                   current={sortKey}
                   dir={sortDir}
+                  q={q}
                   className="text-right"
                 />
               </tr>

@@ -2,11 +2,17 @@
 /**
  * backfill-finish-seconds.ts
  *
- * One-off script to populate finishSeconds on all Athlete rows that were
- * ingested before the field was added. Computes the value as the sum of
- * timeSeconds across all non-finish AthleteSegment rows for each athlete.
+ * Recomputes finishSeconds on all Athlete rows as the sum of timeSeconds
+ * across ALL of the athlete's AthleteSegment rows — including the finish
+ * leg, matching how ingest.ts computes the value (every leg, including the
+ * final run/finish leg, is part of the race clock).
  *
- * Safe to re-run — athletes with an existing finishSeconds are skipped.
+ * An earlier version of this script excluded the isFinish segment, so any
+ * athlete backfilled by it has finishSeconds short by their entire final
+ * leg. This version recomputes every athlete and only writes rows whose
+ * stored value differs, so it corrects those rows and is safe to re-run.
+ *
+ * Athletes with a missing leg time (DNF/DNS) get finishSeconds = null.
  *
  * Usage (run from the app/ directory):
  *   npx tsx scripts/backfill-finish-seconds.ts
@@ -29,20 +35,14 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // Get IDs of athletes missing finishSeconds
   const athletes = await prisma.athlete.findMany({
-    where: { finishSeconds: null },
-    select: { id: true },
+    select: { id: true, finishSeconds: true },
   });
 
-  console.log(`Found ${athletes.length} athletes missing finishSeconds.`);
-  if (athletes.length === 0) {
-    console.log("Nothing to do.");
-    return;
-  }
+  console.log(`Checking ${athletes.length} athletes.`);
 
   let updated = 0;
-  let skipped = 0;
+  let unchanged = 0;
   const BATCH = 500;
 
   for (let i = 0; i < athletes.length; i += BATCH) {
@@ -51,10 +51,7 @@ async function main() {
 
     // Fetch segments for this batch separately to avoid deep nesting
     const segments = await prisma.athleteSegment.findMany({
-      where: {
-        athleteId: { in: ids },
-        segment: { isFinish: false },
-      },
+      where: { athleteId: { in: ids } },
       select: { athleteId: true, timeSeconds: true },
     });
 
@@ -67,17 +64,22 @@ async function main() {
     }
 
     await Promise.all(
-      ids.map((id) => {
-        const times = timesByAthlete.get(id) ?? [];
-        // Skip if no segments or any leg time is missing
-        if (times.length === 0 || times.some((t) => t === null)) {
-          skipped++;
+      batch.map((athlete) => {
+        const times = timesByAthlete.get(athlete.id) ?? [];
+        // Null when there are no segments or any leg time is missing —
+        // a partial sum would understate the athlete's race time.
+        const finishSeconds =
+          times.length === 0 || times.some((t) => t === null)
+            ? null
+            : Math.round(times.reduce((sum, t) => sum! + t!, 0)!);
+
+        if (finishSeconds === athlete.finishSeconds) {
+          unchanged++;
           return Promise.resolve();
         }
-        const finishSeconds = Math.round(times.reduce((sum, t) => sum! + t!, 0)!);
         updated++;
         return prisma.athlete.update({
-          where: { id },
+          where: { id: athlete.id },
           data: { finishSeconds },
         });
       })
@@ -86,7 +88,7 @@ async function main() {
     process.stdout.write(`  ${i + batch.length}/${athletes.length} processed\r`);
   }
 
-  console.log(`\nDone. ${updated} updated, ${skipped} skipped (incomplete segment times).`);
+  console.log(`\nDone. ${updated} updated, ${unchanged} already correct.`);
 }
 
 main()

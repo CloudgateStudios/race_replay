@@ -332,6 +332,17 @@ export function toFloat(val: string | undefined): number | null {
   return isNaN(n) ? null : n;
 }
 
+/**
+ * Normalizes a display-time CSV value. The scraper writes "--:--:--" for
+ * missing times (DNF/DNS rows); treat that placeholder — or any value with
+ * no digits — as null so the UI's null fallbacks apply.
+ */
+export function toTimeString(val: string | undefined): string | null {
+  const trimmed = (val ?? "").trim();
+  if (!trimmed || !/\d/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function timeToSeconds(t: string): number | null {
   const parts = t.split(":").map(Number);
   if (parts.some(isNaN)) return null;
@@ -355,7 +366,9 @@ const EXPECTED_COLS = [
   "Status",
   "Wave Finish Time",
 ];
-const EXPECTED_FINISH_COLS = ["Overall Finish Time"];
+// Either column satisfies the finish-time check — athleteData falls back from
+// "Overall Finish Time" to "Finish Time" (see the finishTime field below).
+const EXPECTED_FINISH_COLS = ["Overall Finish Time", "Finish Time"];
 const EXPECTED_RANK_COLS = ["Overall Rank", "Gender Rank", "Division Rank"];
 
 export function warnMissingColumns(headers: string[]): void {
@@ -432,6 +445,17 @@ async function main() {
   if (dryRun) {
     console.log("Dry run complete — no data written.");
     return;
+  }
+
+  // A CSV with no "<Leg> Time" columns is never valid input — without this
+  // guard every athlete would ingest with finishSeconds = 0 (an empty
+  // legTimes array vacuously passes the .every() check below) and no segments.
+  if (rawLegs.length === 0) {
+    console.error(
+      'No leg columns detected (no headers ending in " Time") — refusing to ingest. ' +
+        "Is this a _passing.csv produced by racereplay.mjs?"
+    );
+    process.exit(1);
   }
 
   // ── Upsert Race ────────────────────────────────────────────────────────────
@@ -550,9 +574,9 @@ async function main() {
         city: (obj["City"] ?? "").trim() || null,
         team: (obj["Team"] ?? "").trim() || null,
         status: toAthleteStatus(obj["Status"]),
-        finishTime: (obj["Overall Finish Time"] || obj["Finish Time"] || "").trim() || null,
+        finishTime: toTimeString(obj["Overall Finish Time"] || obj["Finish Time"]),
         finishSeconds,
-        waveTime: (obj["Wave Finish Time"] ?? "").trim() || null,
+        waveTime: toTimeString(obj["Wave Finish Time"]),
         overallRank: toInt(obj["Overall Rank"]),
         genderRank: toInt(obj["Gender Rank"]),
         divisionRank: toInt(obj["Division Rank"]),

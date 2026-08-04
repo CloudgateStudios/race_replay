@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.12.0](https://github.com/CloudgateStudios/race_replay/compare/0.11.4...0.12.0) (2026-08-04)
+
+### Bug Fixes
+
+- compare picker keeps athlete B when only B is selected ([#139](https://github.com/CloudgateStudios/race_replay/issues/139)) ([12b7465](https://github.com/CloudgateStudios/race_replay/commit/12b7465f3c9e0d41221cc809da4d57e1565956ed))
+- correct inverted faster/slower labels in race history ([#132](https://github.com/CloudgateStudios/race_replay/issues/132)) ([c2b0e5f](https://github.com/CloudgateStudios/race_replay/commit/c2b0e5fb94da6064cc3666bebd49fc3b0ea0eeb8))
+- highlight the faster finish time in the compare Overall row ([#140](https://github.com/CloudgateStudios/race_replay/issues/140)) ([d1b0100](https://github.com/CloudgateStudios/race_replay/commit/d1b010001b1e723a1b1cba35eefb4025fadf1cf4))
+- include finish leg when backfilling finishSeconds ([#133](https://github.com/CloudgateStudios/race_replay/issues/133)) ([ac2b217](https://github.com/CloudgateStudios/race_replay/commit/ac2b217ed03fb447fbf0e0733b75e98874acee79))
+- ingest finish-column warning accepts Finish Time ([#142](https://github.com/CloudgateStudios/race_replay/issues/142)) ([b1a39ec](https://github.com/CloudgateStudios/race_replay/commit/b1a39ec0fe10024dba7b08d8e900c4239f3e2798))
+- races page sort links preserve the active search query ([#141](https://github.com/CloudgateStudios/race_replay/issues/141)) ([bcfe2e5](https://github.com/CloudgateStudios/race_replay/commit/bcfe2e504d2c01cc26c3dcd0f08bde9685469b5a))
+- sort Finish column numerically by finishSeconds ([#131](https://github.com/CloudgateStudios/race_replay/issues/131)) ([9972d5e](https://github.com/CloudgateStudios/race_replay/commit/9972d5e293f33dcf7497a05b41ec2296abd436f1))
+- strip place prefix from raceresult division names ([#138](https://github.com/CloudgateStudios/race_replay/issues/138)) ([f934ee6](https://github.com/CloudgateStudios/race_replay/commit/f934ee6854e5457aea1f2bd7f86bf3e1cb2f2f0b))
+- treat scraper's --:--:-- time placeholder as null on ingest ([#134](https://github.com/CloudgateStudios/race_replay/issues/134)) ([6f02d76](https://github.com/CloudgateStudios/race_replay/commit/6f02d7634c44920a12eb264c91b75211e8dc1274))
+- validate dir/page/year URL params instead of 500ing ([#135](https://github.com/CloudgateStudios/race_replay/issues/135)) ([8513dde](https://github.com/CloudgateStudios/race_replay/commit/8513dde7dcd5450daa99c14366260a685552f8ae))
+
+### [0.11.4](https://github.com/CloudgateStudios/race_replay/compare/0.11.3...0.11.4) (2026-08-04)
+
+### Bug Fixes
+
+- correct passing counts for mass-start Pro waves ([#107](https://github.com/CloudgateStudios/race_replay/issues/107)) ([c5192f7](https://github.com/CloudgateStudios/race_replay/commit/c5192f7043d071d58400356c7b0c3f4bd1105a88))
+
+### [0.11.3](https://github.com/CloudgateStudios/race_replay/compare/0.11.2...0.11.3) (2026-07-29)
+
+### [0.11.2](https://github.com/CloudgateStudios/race_replay/compare/0.11.1...0.11.2) (2026-07-15)
+
+### Features
+
+- add sitemap.xml route referenced by robots.txt ([#125](https://github.com/CloudgateStudios/race_replay/issues/125)) ([47b98a7](https://github.com/CloudgateStudios/race_replay/commit/47b98a728a68a7c228ebef22f8c1685b788e7fba))
+
+### Bug Fixes
+
+- 404 race pages that have no events ([#127](https://github.com/CloudgateStudios/race_replay/issues/127)) ([792790f](https://github.com/CloudgateStudios/race_replay/commit/792790f99d8a3fd05656e229eb1929318d5d1afe))
+- escape < in JSON-LD structured data block ([#124](https://github.com/CloudgateStudios/race_replay/issues/124)) ([60b0834](https://github.com/CloudgateStudios/race_replay/commit/60b083436369e1a079bc3a64ee1048e9da5c69b5))
+- guard ingest against empty leg lists and newlines in CSV values ([#129](https://github.com/CloudgateStudios/race_replay/issues/129)) ([a8acf88](https://github.com/CloudgateStudios/race_replay/commit/a8acf886be3cdfe69f23c4f01c452503cbdbf2b1))
+- harden query param parsing against malformed URLs ([#123](https://github.com/CloudgateStudios/race_replay/issues/123)) ([94e01be](https://github.com/CloudgateStudios/race_replay/commit/94e01be3f644fe8fdfcd76d10198fa90a74a2d6f))
+- harden the request-race email endpoint ([#126](https://github.com/CloudgateStudios/race_replay/issues/126)) ([3fd6192](https://github.com/CloudgateStudios/race_replay/commit/3fd6192a2d23af15daf03ecc9a34cc2596b2992f))
+- resolve raceresult splits from all records, not just the first ([#128](https://github.com/CloudgateStudios/race_replay/issues/128)) ([b7ee6c0](https://github.com/CloudgateStudios/race_replay/commit/b7ee6c099d467446968b9f05efc32eb54ab6693a))
+- theme toggle shows wrong state after page refresh ([#115](https://github.com/CloudgateStudios/race_replay/issues/115)) ([4246fa8](https://github.com/CloudgateStudios/race_replay/commit/4246fa8a56a3130abb19fa0776ef58580283e490)), closes [#8](https://github.com/CloudgateStudios/race_replay/issues/8)
+
 ### [0.11.1](https://github.com/CloudgateStudios/race_replay/compare/0.11.0...0.11.1) (2026-06-24)
 
 ### Bug Fixes

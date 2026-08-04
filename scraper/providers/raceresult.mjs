@@ -33,6 +33,20 @@ const CANONICAL_SPLITS = [
 ];
 
 /**
+ * Extracts the division name from a raceresult "Division Place" value, which
+ * embeds the athlete's place and an optional "Podium" suffix for finishers:
+ *   "3. M30-34 Podium" → "M30-34"
+ *   "M30-34"           → "M30-34"  (DNF rows carry no place)
+ * The numeric place itself is parsed separately (see parseRank).
+ */
+export function cleanDivision(v) {
+  return String(v ?? "")
+    .replace(/\s+Podium$/, "")
+    .replace(/^\d+\.\s*/, "")
+    .trim();
+}
+
+/**
  * Parses a TOD value that may be a float (seconds since midnight) or an
  * "HH:MM:SS" / "H:MM:SS" string. Returns seconds as a float, or null.
  */
@@ -63,6 +77,25 @@ export function resolveSplitKeys(record) {
     }
   }
   return resolved;
+}
+
+/**
+ * Merges all records into a single template object holding, for each key, the
+ * first parseable TOD value seen across the field. resolveSplitKeys() needs a
+ * record where every split that exists for *anyone* is present and parseable —
+ * using records[0] alone silently dropped legs whenever the first record was a
+ * DNS/DNF with missing splits.
+ */
+export function buildSplitTemplate(records) {
+  const template = {};
+  for (const r of records) {
+    for (const key of Object.keys(r)) {
+      if (template[key] === undefined && parseTod(r[key]) != null) {
+        template[key] = r[key];
+      }
+    }
+  }
+  return template;
 }
 
 /**
@@ -114,9 +147,10 @@ export function transformAthletes(records, raceDateMs) {
   const startEpochs = new Map();
   const raceDateSec = raceDateMs / 1000;
 
-  // Resolve which JSON keys are present and map them to canonical leg names
-  const firstRecord = records[0] ?? {};
-  const resolvedSplits = resolveSplitKeys(firstRecord);
+  // Resolve which JSON keys are present and map them to canonical leg names.
+  // Resolve against a template merged from every record, not records[0] —
+  // the first record may be a DNS/DNF missing splits that finishers have.
+  const resolvedSplits = resolveSplitKeys(buildSplitTemplate(records));
   if (resolvedSplits.length < 2) {
     throw new Error(
       `Expected at least 2 TOD split keys in the data; found: ${resolvedSplits.map((s) => s.key).join(", ")}`
@@ -138,7 +172,7 @@ export function transformAthletes(records, raceDateMs) {
     const g = r.Gender === "M" ? "Male" : r.Gender === "F" ? "Female" : r.Gender;
     if (g) genderTotals.set(g, (genderTotals.get(g) ?? 0) + 1);
     if (r["Division Place"]) {
-      const div = r["Division Place"].replace(/\s+Podium$/, "").trim();
+      const div = cleanDivision(r["Division Place"]);
       if (div) divisionTotals.set(div, (divisionTotals.get(div) ?? 0) + 1);
     }
   }
@@ -189,7 +223,7 @@ export function transformAthletes(records, raceDateMs) {
         })()
       : null;
 
-    const divisionStr = (r["Division Place"] ?? "").replace(/\s+Podium$/, "").trim();
+    const divisionStr = cleanDivision(r["Division Place"]);
 
     // Overall / gender / division rank: raceresult supplies "Place" as "1." etc.
     const parseRank = (v) => {

@@ -142,6 +142,78 @@ export function computePassingDataFast(athletes, legNames, hasWaveData = false) 
       continue;
     }
 
+    // ── Wave start, leg 1: gun-start within each wave + cross-wave Fenwick ──────
+    // Athletes in the same wave all start simultaneously, so any relative ordering
+    // at the first checkpoint is a pass. Athletes from different waves are compared
+    // by absolute clock position (waveOffset + chip time = cumPositions).
+    if (hasWaveData && leg.name === legNames[0]) {
+      const byWave = new Map();
+      for (const a of eligible) {
+        const w = a.waveOffset;
+        if (!byWave.has(w)) byWave.set(w, []);
+        byWave.get(w).push(a);
+      }
+
+      // Step 1: within each wave, apply gun-start formula
+      for (const [, waveAthletes] of byWave) {
+        const waveAfterMap = buildRankMap(waveAthletes, leg.getAfter);
+        for (const x of waveAthletes) {
+          const xAfter = waveAfterMap.get(x.bib);
+          if (xAfter == null) continue;
+          const wn = waveAfterMap.size;
+          results.get(x.bib)[leg.name].gained += wn - xAfter;
+          results.get(x.bib)[leg.name].lost += xAfter - 1;
+        }
+      }
+
+      // Step 2: count cross-wave passes using a Fenwick tree indexed by wave order
+      if (byWave.size > 1) {
+        const sortedWaves = [...byWave.keys()].sort((a, b) => a - b);
+
+        // A later-wave athlete whose cumulative position falls below the minimum
+        // of the first wave has an impossible chip time (they would need to swim
+        // faster than the fastest first-wave athlete despite starting later). This
+        // indicates a corrupted timing read; exclude them from cross-wave counts.
+        const minCumFirst = Math.min(
+          ...byWave.get(sortedWaves[0]).map((a) => leg.getAfter(a))
+        );
+        const crossEligible = eligible.filter(
+          (a) => a.waveOffset === sortedWaves[0] || leg.getAfter(a) >= minCumFirst
+        );
+
+        // Rebuild wave groups from the validated set so prefixTotal is accurate
+        const crossByWave = new Map();
+        for (const a of crossEligible) {
+          if (!crossByWave.has(a.waveOffset)) crossByWave.set(a.waveOffset, []);
+          crossByWave.get(a.waveOffset).push(a);
+        }
+        const crossSortedWaves = [...crossByWave.keys()].sort((a, b) => a - b);
+        const W = crossSortedWaves.length;
+        const waveIndex = new Map(crossSortedWaves.map((w, i) => [w, i + 1]));
+        // prefixTotal[i] = validated athletes in waves 0..i-1 (1-indexed)
+        const prefixTotal = [0];
+        for (const w of crossSortedWaves)
+          prefixTotal.push(prefixTotal[prefixTotal.length - 1] + crossByWave.get(w).length);
+
+        const sortedByCum = [...crossEligible].sort(
+          (a, b) =>
+            leg.getAfter(a) - leg.getAfter(b) ||
+            String(a.bib).localeCompare(String(b.bib))
+        );
+        const crossFenwick = new FenwickTree(W);
+        for (const x of sortedByCum) {
+          const wi = waveIndex.get(x.waveOffset);
+          // Later-wave athletes already in tree arrived before x → x lost to them
+          results.get(x.bib)[leg.name].lost += crossFenwick.query(W) - crossFenwick.query(wi);
+          // Earlier-wave athletes not yet in tree → x arrived before them → x gained
+          results.get(x.bib)[leg.name].gained += prefixTotal[wi - 1] - crossFenwick.query(wi - 1);
+          crossFenwick.update(wi, 1);
+        }
+      }
+
+      continue;
+    }
+
     const beforeMap = buildRankMap(athletes, leg.getBefore);
     eligible = eligible.filter((a) => beforeMap.has(a.bib));
     if (eligible.length === 0) continue;
@@ -207,6 +279,18 @@ export function computePassingData(athletes, legNames, hasWaveData = false) {
     const eligible = athletes.filter((a) => afterMap.has(a.bib));
     const isGunStart = leg.name === legNames[0] && !hasWaveData;
 
+    // Compute the bad-chip-read filter threshold for wave-start leg 1 (same
+    // logic as the fast algorithm): any later-wave athlete with cumPos below
+    // the first wave's minimum has an impossible chip time and is excluded from
+    // cross-wave comparisons.
+    let minCumFirst = null;
+    if (hasWaveData && leg.name === legNames[0]) {
+      const waveOffsets = [...new Set(eligible.map((a) => a.waveOffset))].sort((a, b) => a - b);
+      const firstWaveOffset = waveOffsets[0];
+      const firstWaveAthletes = eligible.filter((a) => a.waveOffset === firstWaveOffset);
+      minCumFirst = Math.min(...firstWaveAthletes.map((a) => leg.getAfter(a)));
+    }
+
     let beforeMap;
     if (isGunStart) {
       beforeMap = new Map(eligible.map((a) => [a.bib, 1]));
@@ -233,6 +317,18 @@ export function computePassingData(athletes, legNames, hasWaveData = false) {
         if (isGunStart) {
           if (yAfter > xAfter) legData.gained++;
           else if (yAfter < xAfter) legData.lost++;
+        } else if (hasWaveData && leg.name === legNames[0] && x.waveOffset === y.waveOffset) {
+          // Same wave on leg 1: both started simultaneously, so any ordering = pass
+          if (yAfter > xAfter) legData.gained++;
+          else if (yAfter < xAfter) legData.lost++;
+        } else if (
+          hasWaveData &&
+          leg.name === legNames[0] &&
+          minCumFirst != null &&
+          (leg.getAfter(x) < minCumFirst || leg.getAfter(y) < minCumFirst)
+        ) {
+          // One or both athletes has a cumPos below the first wave's minimum —
+          // bad timing read; skip this cross-wave comparison entirely.
         } else {
           if (yBefore < xBefore && yAfter > xAfter) legData.gained++;
           else if (yBefore > xBefore && yAfter < xAfter) legData.lost++;

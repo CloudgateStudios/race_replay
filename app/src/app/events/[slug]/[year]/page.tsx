@@ -37,8 +37,10 @@ const SORTABLE_COLUMNS: Record<string, { key: string; nullable: boolean }> = {
 
 export async function generateMetadata({ params }: Props) {
   const { slug, year } = await params;
+  const yearNum = parseInt(year, 10);
+  if (Number.isNaN(yearNum)) return { title: "Not Found" };
   const event = await prisma.event.findFirst({
-    where: { year: parseInt(year, 10), race: { slug } },
+    where: { year: yearNum, race: { slug } },
     include: { race: { select: { name: true } } },
   });
   if (!event) return { title: "Not Found" };

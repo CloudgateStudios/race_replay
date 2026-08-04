@@ -13,17 +13,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EventFilters } from "../filters";
+import { first } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string; year: string }>;
-  searchParams: Promise<{ a?: string; b?: string; q?: string; gender?: string; division?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const { slug, year } = await params;
-  const { a, b } = await searchParams;
+  const sp = await searchParams;
+  const a = first(sp.a);
+  const b = first(sp.b);
   const race = await prisma.race.findUnique({ where: { slug } });
   if (!race || !a || !b) return { title: "Compare Athletes", robots: { index: false } };
   const title = `Compare · ${race.name} ${year}`;
@@ -36,7 +39,12 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
 export default async function ComparePage({ params, searchParams }: Props) {
   const { slug, year: yearStr } = await params;
-  const { a: bibA, b: bibB, q = "", gender: genderParam = "", division = "" } = await searchParams;
+  const sp = await searchParams;
+  const bibA = first(sp.a);
+  const bibB = first(sp.b);
+  const q = first(sp.q) ?? "";
+  const genderParam = first(sp.gender) ?? "";
+  const division = first(sp.division) ?? "";
   const gender = (Object.values(Gender) as string[]).includes(genderParam)
     ? (genderParam as Gender)
     : null;
@@ -226,15 +234,19 @@ async function AthletePicker({
             {athletes.map((a) => {
               const isA = a.bib === bibA;
               const isB = a.bib === bibB;
-              // Build the href for clicking this row
-              const nextA = isA ? bibA : (bibA ?? a.bib);
-              const nextB = isA ? bibB : isB ? bibB : bibA ? a.bib : undefined;
-              const href =
-                nextA && nextB
-                  ? `/events/${slug}/${year}/compare?a=${nextA}&b=${nextB}`
-                  : nextA
-                    ? `/events/${slug}/${year}/compare?a=${nextA}`
-                    : `/events/${slug}/${year}/compare?a=${a.bib}`;
+              // Build the href for clicking this row: an already-selected
+              // athlete keeps both slots; otherwise fill the empty A slot
+              // first, then B (replacing B when both are already set).
+              let nextA = bibA;
+              let nextB = bibB;
+              if (!isA && !isB) {
+                if (!bibA) nextA = a.bib;
+                else nextB = a.bib;
+              }
+              const nextParams = new URLSearchParams();
+              if (nextA) nextParams.set("a", nextA);
+              if (nextB) nextParams.set("b", nextB);
+              const href = `/events/${slug}/${year}/compare?${nextParams.toString()}`;
 
               return (
                 <TableRow
@@ -268,7 +280,7 @@ async function AthletePicker({
                         href={href}
                         className="text-muted-foreground hover:text-foreground text-xs transition-colors"
                       >
-                        {!bibA ? "Set as A →" : !bibB ? "Set as B →" : "Swap A →"}
+                        {!bibA ? "Set as A →" : !bibB ? "Set as B →" : "Swap B →"}
                       </Link>
                     )}
                   </TableCell>

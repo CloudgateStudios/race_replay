@@ -332,6 +332,17 @@ export function toFloat(val: string | undefined): number | null {
   return isNaN(n) ? null : n;
 }
 
+/**
+ * Normalizes a display-time CSV value. The scraper writes "--:--:--" for
+ * missing times (DNF/DNS rows); treat that placeholder — or any value with
+ * no digits — as null so the UI's null fallbacks apply.
+ */
+export function toTimeString(val: string | undefined): string | null {
+  const trimmed = (val ?? "").trim();
+  if (!trimmed || !/\d/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function timeToSeconds(t: string): number | null {
   const parts = t.split(":").map(Number);
   if (parts.some(isNaN)) return null;
@@ -563,9 +574,9 @@ async function main() {
         city: (obj["City"] ?? "").trim() || null,
         team: (obj["Team"] ?? "").trim() || null,
         status: toAthleteStatus(obj["Status"]),
-        finishTime: (obj["Overall Finish Time"] || obj["Finish Time"] || "").trim() || null,
+        finishTime: toTimeString(obj["Overall Finish Time"] || obj["Finish Time"]),
         finishSeconds,
-        waveTime: (obj["Wave Finish Time"] ?? "").trim() || null,
+        waveTime: toTimeString(obj["Wave Finish Time"]),
         overallRank: toInt(obj["Overall Rank"]),
         genderRank: toInt(obj["Gender Rank"]),
         divisionRank: toInt(obj["Division Rank"]),

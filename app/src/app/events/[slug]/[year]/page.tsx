@@ -24,11 +24,15 @@ interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const SORTABLE_COLUMNS: Record<string, object> = {
-  rank: { overallRank: "asc" as const },
-  name: { name: "asc" as const },
-  bib: { bib: "asc" as const },
-  finish: { finishTime: "asc" as const },
+// nullable columns sort with nulls last in both directions so DNFs/DNSs
+// (null rank/finish) never lead the table.
+const SORTABLE_COLUMNS: Record<string, { key: string; nullable: boolean }> = {
+  rank: { key: "overallRank", nullable: true },
+  name: { key: "name", nullable: false },
+  bib: { key: "bib", nullable: false },
+  // finishTime is a display string ("9:59:59"), which sorts lexicographically —
+  // sort on the numeric finishSeconds column instead.
+  finish: { key: "finishSeconds", nullable: true },
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -97,8 +101,10 @@ export default async function EventPage({ params, searchParams }: Props) {
   };
 
   // Determine sort order
-  const orderBy = SORTABLE_COLUMNS[sort] ?? { overallRank: "asc" as const };
-  const orderByWithDir = Object.fromEntries(Object.entries(orderBy).map(([k]) => [k, dir]));
+  const sortCol = SORTABLE_COLUMNS[sort] ?? SORTABLE_COLUMNS.rank;
+  const orderByWithDir = {
+    [sortCol.key]: sortCol.nullable ? { sort: dir, nulls: "last" as const } : dir,
+  };
 
   // Single groupBy replaces N individual count queries for each segment
   const segmentCountsRaw = await prisma.athleteSegment.groupBy({

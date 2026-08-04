@@ -15,19 +15,24 @@ import {
 import { EventFilters } from "./filters";
 import { EventFunnel } from "./funnel";
 import { SortHeader } from "./sort-header";
+import { first, positiveInt } from "@/lib/search-params";
 
 const PAGE_SIZE = 50;
 
 interface Props {
   params: Promise<{ slug: string; year: string }>;
-  searchParams: Promise<Record<string, string>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const SORTABLE_COLUMNS: Record<string, object> = {
-  rank: { overallRank: "asc" as const },
-  name: { name: "asc" as const },
-  bib: { bib: "asc" as const },
-  finish: { finishTime: "asc" as const },
+// nullable columns sort with nulls last in both directions so DNFs/DNSs
+// (null rank/finish) never lead the table.
+const SORTABLE_COLUMNS: Record<string, { key: string; nullable: boolean }> = {
+  rank: { key: "overallRank", nullable: true },
+  name: { key: "name", nullable: false },
+  bib: { key: "bib", nullable: false },
+  // finishTime is a display string ("9:59:59"), which sorts lexicographically —
+  // sort on the numeric finishSeconds column instead.
+  finish: { key: "finishSeconds", nullable: true },
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -63,18 +68,15 @@ export default async function EventPage({ params, searchParams }: Props) {
   const year = parseInt(yearStr, 10);
   if (isNaN(year)) notFound();
 
-  const q = sp.q?.trim() ?? "";
-  const genderParam = sp.gender ?? "";
+  const q = first(sp.q)?.trim() ?? "";
+  const genderParam = first(sp.gender) ?? "";
   const gender = (Object.values(Gender) as string[]).includes(genderParam)
     ? (genderParam as Gender)
     : null;
-  const division = sp.division ?? "";
-  const sort = sp.sort ?? "rank";
-  // Query params come from arbitrary URLs (crawlers included) — anything
-  // unexpected falls back to defaults rather than reaching Prisma and 500ing.
-  const dir = sp.dir === "desc" ? "desc" : "asc";
-  const parsedPage = parseInt(sp.page ?? "1", 10);
-  const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+  const division = first(sp.division) ?? "";
+  const sort = first(sp.sort) ?? "rank";
+  const dir: "asc" | "desc" = first(sp.dir) === "desc" ? "desc" : "asc";
+  const page = positiveInt(sp.page, 1);
 
   const event = await prisma.event.findFirst({
     where: { year, race: { slug } },
@@ -101,8 +103,10 @@ export default async function EventPage({ params, searchParams }: Props) {
   };
 
   // Determine sort order
-  const orderBy = SORTABLE_COLUMNS[sort] ?? { overallRank: "asc" as const };
-  const orderByWithDir = Object.fromEntries(Object.entries(orderBy).map(([k]) => [k, dir]));
+  const sortCol = SORTABLE_COLUMNS[sort] ?? SORTABLE_COLUMNS.rank;
+  const orderByWithDir = {
+    [sortCol.key]: sortCol.nullable ? { sort: dir, nulls: "last" as const } : dir,
+  };
 
   // Single groupBy replaces N individual count queries for each segment
   const segmentCountsRaw = await prisma.athleteSegment.groupBy({
@@ -162,7 +166,11 @@ export default async function EventPage({ params, searchParams }: Props) {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   function pageUrl(p: number) {
-    const params = new URLSearchParams(sp);
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp)) {
+      const v = first(value);
+      if (v != null) params.set(key, v);
+    }
     params.set("page", String(p));
     return `?${params.toString()}`;
   }
@@ -182,7 +190,9 @@ export default async function EventPage({ params, searchParams }: Props) {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify does not escape "<", so a value containing "</script>"
+        // would break out of this block — escape it for any data source.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* Breadcrumb */}
       <div className="mb-1">

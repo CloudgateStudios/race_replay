@@ -56,7 +56,12 @@ export function printReport(athletes, passingMap, legNames, hasWaveData, elapsed
  * Builds the full passing CSV as a string.
  */
 export function buildOutputCSV(athletes, passingMap, legNames) {
-  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  // Newlines are flattened to spaces: the ingest CSV parser is line-based and
+  // a name containing a newline would corrupt its own row and every row after.
+  const esc = (v) =>
+    `"${String(v ?? "")
+      .replace(/[\r\n]+/g, " ")
+      .replace(/"/g, '""')}"`;
 
   const headers = [
     "Bib",

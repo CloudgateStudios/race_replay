@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.11.4](https://github.com/CloudgateStudios/race_replay/compare/0.11.3...0.11.4) (2026-08-04)
+
+### Bug Fixes
+
+- correct passing counts for mass-start Pro waves ([#107](https://github.com/CloudgateStudios/race_replay/issues/107)) ([c5192f7](https://github.com/CloudgateStudios/race_replay/commit/c5192f7043d071d58400356c7b0c3f4bd1105a88))
+
 ### [0.11.3](https://github.com/CloudgateStudios/race_replay/compare/0.11.2...0.11.3) (2026-07-29)
 
 ### [0.11.2](https://github.com/CloudgateStudios/race_replay/compare/0.11.1...0.11.2) (2026-07-15)

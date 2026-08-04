@@ -454,16 +454,17 @@ function ComparisonView({
                 );
               })}
 
-              {/* Totals row */}
+              {/* Totals row — time cells highlight the faster finisher, like
+                  the per-leg rows; the Winner column stays net-based. */}
               <TableRow className="bg-muted/30 border-t-2 font-bold">
                 <TableCell>Overall</TableCell>
                 <TableCell
-                  className={`text-right font-mono tabular-nums ${netA >= netB ? "text-blue-500" : ""}`}
+                  className={`text-right font-mono tabular-nums ${totalDelta != null && totalDelta < 0 ? "text-blue-500" : ""}`}
                 >
                   {athleteA.finishTime ?? "—"}
                 </TableCell>
                 <TableCell
-                  className={`text-right font-mono tabular-nums ${netB > netA ? "text-orange-500" : ""}`}
+                  className={`text-right font-mono tabular-nums ${totalDelta != null && totalDelta > 0 ? "text-orange-500" : ""}`}
                 >
                   {athleteB.finishTime ?? "—"}
                 </TableCell>

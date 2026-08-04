@@ -9,7 +9,12 @@
  * Usage: node scraper/test-raceresult.mjs
  */
 
-import { parseTod, resolveSplitKeys, transformAthletes } from "./providers/raceresult.mjs";
+import {
+  parseTod,
+  resolveSplitKeys,
+  buildSplitTemplate,
+  transformAthletes,
+} from "./providers/raceresult.mjs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -154,26 +159,33 @@ const NO_FINISH = { "Start TOD": 28800, "5K TOD": 29920 };
 const noFinishResolved = resolveSplitKeys(NO_FINISH);
 assert(noFinishResolved.every((s) => s.legName !== "FINISH"), "missing key not in result");
 
-// Array input: a split missing from the FIRST record still resolves when a
-// later record has a valid value for it.
-const unionResolved = resolveSplitKeys([
-  { "Start TOD": 28800, "5K TOD": null, "Finish TOD": 37500 },
-  { "Start TOD": 28810, "5K TOD": 29950, "Finish TOD": 38000 },
-]);
-assert(unionResolved.length === 3, "split missing in first record resolves via later records");
+// ─── buildSplitTemplate ───────────────────────────────────────────────────────
+
+console.log("\n═".repeat(60));
+console.log("  buildSplitTemplate");
+console.log("═".repeat(60));
+
+// A DNS first record must not hide splits that later records have
+const DNS_FIRST = [
+  { "Start TOD": null, "5K TOD": null, "Finish TOD": null },
+  { "Start TOD": 28800, "5K TOD": 29920, "Finish TOD": 37500 },
+];
+const template = buildSplitTemplate(DNS_FIRST);
+const templateResolved = resolveSplitKeys(template);
+assert(templateResolved.length === 3, "DNS-first records: all 3 splits still resolved");
 assert(
-  unionResolved.some((s) => s.key === "5K TOD"),
-  "5K TOD resolved from second record"
+  templateResolved.some((s) => s.legName === "FINISH"),
+  "DNS-first records: FINISH split present"
 );
 
-// Array input: a split null in EVERY record stays excluded
-const allNullResolved = resolveSplitKeys([
-  { "Start TOD": 28800, "5K TOD": null, "Finish TOD": 37500 },
-  { "Start TOD": 28810, "5K TOD": null, "Finish TOD": 38000 },
+// Splits nobody has stay excluded
+const noOneFinished = buildSplitTemplate([
+  { "Start TOD": 28800, "Finish TOD": null },
+  { "Start TOD": 28900, "Finish TOD": null },
 ]);
 assert(
-  allNullResolved.every((s) => s.key !== "5K TOD"),
-  "split null in all records stays excluded"
+  resolveSplitKeys(noOneFinished).every((s) => s.legName !== "FINISH"),
+  "split with no parseable value in any record stays excluded"
 );
 
 // ─── transformAthletes ────────────────────────────────────────────────────────

@@ -46,30 +46,42 @@ export function parseTod(v) {
 }
 
 /**
- * Resolves which actual JSON keys correspond to the canonical split labels,
- * matching case-insensitively (e.g. "Start TOD" matches "START TOD").
- * Accepts one record or an array of records: a split resolves when ANY record
- * has a valid value for it, so one athlete missing a mat (including the first
- * record) can't silently drop that leg for the whole race.
+ * Resolves which actual JSON keys in a record correspond to the canonical split
+ * labels, matching case-insensitively (e.g. "Start TOD" matches "START TOD").
  * Returns an ordered array of { legName, key } for each split that is present.
  */
-export function resolveSplitKeys(records) {
-  const list = Array.isArray(records) ? records : [records];
-  const lowerKeys = {};
-  for (const record of list) {
-    for (const k of Object.keys(record)) {
-      lowerKeys[k.toLowerCase()] ??= k;
-    }
-  }
+export function resolveSplitKeys(record) {
+  const lowerKeys = Object.fromEntries(
+    Object.keys(record).map((k) => [k.toLowerCase(), k])
+  );
   const resolved = [];
   for (const { label, legName } of CANONICAL_SPLITS) {
     const needle = `${label.toLowerCase()} tod`;
     const actualKey = lowerKeys[needle];
-    if (actualKey !== undefined && list.some((r) => parseTod(r[actualKey]) != null)) {
+    if (actualKey !== undefined && parseTod(record[actualKey]) != null) {
       resolved.push({ legName, key: actualKey });
     }
   }
   return resolved;
+}
+
+/**
+ * Merges all records into a single template object holding, for each key, the
+ * first parseable TOD value seen across the field. resolveSplitKeys() needs a
+ * record where every split that exists for *anyone* is present and parseable —
+ * using records[0] alone silently dropped legs whenever the first record was a
+ * DNS/DNF with missing splits.
+ */
+export function buildSplitTemplate(records) {
+  const template = {};
+  for (const r of records) {
+    for (const key of Object.keys(r)) {
+      if (template[key] === undefined && parseTod(r[key]) != null) {
+        template[key] = r[key];
+      }
+    }
+  }
+  return template;
 }
 
 /**
@@ -122,8 +134,9 @@ export function transformAthletes(records, raceDateMs) {
   const raceDateSec = raceDateMs / 1000;
 
   // Resolve which JSON keys are present and map them to canonical leg names.
-  // Resolved across all records — any single athlete may have missed a mat.
-  const resolvedSplits = resolveSplitKeys(records);
+  // Resolve against a template merged from every record, not records[0] —
+  // the first record may be a DNS/DNF missing splits that finishers have.
+  const resolvedSplits = resolveSplitKeys(buildSplitTemplate(records));
   if (resolvedSplits.length < 2) {
     throw new Error(
       `Expected at least 2 TOD split keys in the data; found: ${resolvedSplits.map((s) => s.key).join(", ")}`

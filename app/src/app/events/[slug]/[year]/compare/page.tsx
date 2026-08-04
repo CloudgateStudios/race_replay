@@ -13,17 +13,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EventFilters } from "../filters";
+import { first } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string; year: string }>;
-  searchParams: Promise<{ a?: string; b?: string; q?: string; gender?: string; division?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const { slug, year } = await params;
-  const { a, b } = await searchParams;
+  const sp = await searchParams;
+  const a = first(sp.a);
+  const b = first(sp.b);
   const race = await prisma.race.findUnique({ where: { slug } });
   if (!race || !a || !b) return { title: "Compare Athletes", robots: { index: false } };
   const title = `Compare · ${race.name} ${year}`;
@@ -36,7 +39,12 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
 export default async function ComparePage({ params, searchParams }: Props) {
   const { slug, year: yearStr } = await params;
-  const { a: bibA, b: bibB, q = "", gender: genderParam = "", division = "" } = await searchParams;
+  const sp = await searchParams;
+  const bibA = first(sp.a);
+  const bibB = first(sp.b);
+  const q = first(sp.q) ?? "";
+  const genderParam = first(sp.gender) ?? "";
+  const division = first(sp.division) ?? "";
   const gender = (Object.values(Gender) as string[]).includes(genderParam)
     ? (genderParam as Gender)
     : null;

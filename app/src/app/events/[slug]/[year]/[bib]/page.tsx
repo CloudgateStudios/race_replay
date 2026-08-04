@@ -21,10 +21,12 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { slug, year, bib } = await params;
+  const yearNum = parseInt(year, 10);
+  if (Number.isNaN(yearNum)) return { title: "Not Found" };
   const race = await prisma.race.findUnique({ where: { slug } });
   if (!race) return { title: "Not Found" };
   const event = await prisma.event.findUnique({
-    where: { raceId_year: { raceId: race.id, year: parseInt(year, 10) } },
+    where: { raceId_year: { raceId: race.id, year: yearNum } },
   });
   const athlete = event
     ? await prisma.athlete.findUnique({ where: { eventId_bib: { eventId: event.id, bib } } })
@@ -247,12 +249,15 @@ export default async function AthletePage({ params }: Props) {
                   const currentRow = rows.find((r) => r.isCurrent)!;
 
                   return rows.map((row) => {
-                    // Compute deltas vs the current year for historical rows
+                    // Compute deltas vs the current year for historical rows.
+                    // All three deltas describe the current race relative to the
+                    // historical row: positive = current was better (faster time,
+                    // higher rank, more net passes).
                     const timeDeltaSecs =
                       !row.isCurrent &&
                       row.finishSeconds != null &&
                       currentRow.finishSeconds != null
-                        ? currentRow.finishSeconds - row.finishSeconds
+                        ? row.finishSeconds - currentRow.finishSeconds
                         : null;
                     const rankDelta =
                       !row.isCurrent && row.overallRank != null && currentRow.overallRank != null
@@ -262,7 +267,7 @@ export default async function AthletePage({ params }: Props) {
 
                     return (
                       <TableRow
-                        key={row.eventYear}
+                        key={`${row.eventYear}-${row.bib}`}
                         className={row.isCurrent ? "bg-muted/30 font-medium" : undefined}
                       >
                         <TableCell>

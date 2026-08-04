@@ -49,6 +49,11 @@ export default async function RacePage({ params }: Props) {
 
   if (!race) notFound();
 
+  // A race with no events can exist if an ingest run failed partway through
+  // (the Race row is upserted before the Event). The stats below would render
+  // Math.max(...[]) = -Infinity and years[0] = undefined, so 404 instead.
+  if (race.events.length === 0) notFound();
+
   // Skip the year-picker when there's only one year of data
   if (race.events.length === 1) {
     redirect(`/events/${slug}/${race.events[0].year}`);

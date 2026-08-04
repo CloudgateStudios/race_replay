@@ -355,7 +355,9 @@ const EXPECTED_COLS = [
   "Status",
   "Wave Finish Time",
 ];
-const EXPECTED_FINISH_COLS = ["Overall Finish Time"];
+// Either column satisfies the finish-time check — athleteData falls back from
+// "Overall Finish Time" to "Finish Time" (see the finishTime field below).
+const EXPECTED_FINISH_COLS = ["Overall Finish Time", "Finish Time"];
 const EXPECTED_RANK_COLS = ["Overall Rank", "Gender Rank", "Division Rank"];
 
 export function warnMissingColumns(headers: string[]): void {
@@ -432,6 +434,17 @@ async function main() {
   if (dryRun) {
     console.log("Dry run complete — no data written.");
     return;
+  }
+
+  // A CSV with no "<Leg> Time" columns is never valid input — without this
+  // guard every athlete would ingest with finishSeconds = 0 (an empty
+  // legTimes array vacuously passes the .every() check below) and no segments.
+  if (rawLegs.length === 0) {
+    console.error(
+      'No leg columns detected (no headers ending in " Time") — refusing to ingest. ' +
+        "Is this a _passing.csv produced by racereplay.mjs?"
+    );
+    process.exit(1);
   }
 
   // ── Upsert Race ────────────────────────────────────────────────────────────

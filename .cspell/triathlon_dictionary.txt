@@ -1,13 +1,16 @@
 # Triathlon, endurance racing, and timing terms
 agegroup
+aquabike
 bass
 bib
 bibs
 chattanooga
 dnf
 dnfs
+duathlon
 irm
 ironman
+naperville
 obrien
 oceanside
 pinho

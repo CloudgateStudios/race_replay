@@ -10,7 +10,7 @@
  *
  * Provider selection:
  *   --provider <name>     Timing data source. Default: rtrt
- *                         Supported: rtrt, raceresult
+ *                         Supported: rtrt, raceresult, myraceresult
  *
  * ── rtrt provider ────────────────────────────────────────────────────────────
  *   Fetches from RTRT.me. Split data is fetched per-timing-point and cached
@@ -34,6 +34,16 @@
  *   --race-date <date>    Race date as YYYY-MM-DD (required). Used to convert
  *                         time-of-day split values to Unix epoch timestamps.
  *
+ * ── myraceresult provider ────────────────────────────────────────────────────
+ *   Fetches from my.raceresult.com (direct raceresult-hosted events). Athlete
+ *   split timestamps are fetched per-athlete in parallel — no single bulk API.
+ *
+ *   --url <url>           my.raceresult.com event URL (e.g. /353495/).
+ *   --race-date <date>    Race date as YYYY-MM-DD (required).
+ *   --contest <name>      Contest to scrape (e.g. "Sprint", "Duathlon").
+ *                         Defaults to the first contest listed in the event.
+ *   --concurrency <n>     Athlete detail fetches in parallel (default: 20).
+ *
  * ── shared options ────────────────────────────────────────────────────────────
  *   --output-dir <dir>    Directory for output files (default: scraper/data/).
  *   --verify              After the fast O(n log n) algorithm, also run the
@@ -53,6 +63,12 @@
  *   node scraper/racereplay.mjs cim-2025 --provider raceresult \
  *     --api-url https://api.raceresult.com/374113/IMU05T607SLSY3BXCUM067VWT8HGBEHA \
  *     --race-date 2025-12-07
+ *
+ *   # myraceresult (my.raceresult.com hosted events)
+ *   node scraper/racereplay.mjs naperville-sprint-2025 --provider myraceresult \
+ *     --url https://my.raceresult.com/353495/ \
+ *     --race-date 2025-08-03 \
+ *     --contest Sprint
  */
 
 import fs from "fs/promises";
@@ -86,13 +102,16 @@ const verifyMode = has("--verify");
 const appid = flag("--appid");
 const forcedPointsRaw = flag("--points");
 const forcedPoints = forcedPointsRaw ? forcedPointsRaw.split(",").map((p) => p.trim()) : null;
-const concurrency = flag("--concurrency") ? parseInt(flag("--concurrency"), 10) : 4;
+const concurrency = flag("--concurrency") ? parseInt(flag("--concurrency"), 10) : (provider === "myraceresult" ? 20 : 4);
 const fresh = has("--fresh");
 
-// raceresult-specific
+// raceresult / myraceresult
 const myRaceUrl = flag("--url");
 const apiUrl = flag("--api-url");
 const raceDate = flag("--race-date");
+
+// myraceresult-specific
+const contest = flag("--contest");
 
 // ─── Usage ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +119,7 @@ if (!eventId) {
   console.error(`\
 Usage: node scraper/racereplay.mjs <event-id> [options]
 
-  --provider <name>     rtrt (default) | raceresult
+  --provider <name>     rtrt (default) | raceresult | myraceresult
 
 RTRT options:
   --appid <id>          Required for rtrt provider.
@@ -113,6 +132,12 @@ raceresult options:
   --api-url <url>       Direct raceresult.com API URL.
   --race-date <date>    Race date YYYY-MM-DD (required).
 
+myraceresult options:
+  --url <url>           my.raceresult.com event URL.
+  --race-date <date>    Race date YYYY-MM-DD (required).
+  --contest <name>      Contest name (e.g. "Sprint"). Defaults to first.
+  --concurrency <n>     Parallel athlete fetches (default: 20).
+
 Shared options:
   --output-dir <dir>    Output directory (default: scraper/data/).
   --verify              Diff fast vs O(n²) reference algorithm.
@@ -121,13 +146,15 @@ Examples:
   node scraper/racereplay.mjs IRM-ARIZONA-2025 --appid <id>
   node scraper/racereplay.mjs cim-2025 --provider raceresult \\
     --url https://myrace.ai/races/cim-2025/results --race-date 2025-12-07
+  node scraper/racereplay.mjs naperville-sprint-2025 --provider myraceresult \\
+    --url https://my.raceresult.com/353495/ --race-date 2025-08-03 --contest Sprint
 `);
   process.exit(1);
 }
 
 // ─── Provider validation ──────────────────────────────────────────────────────
 
-const SUPPORTED_PROVIDERS = ["rtrt", "raceresult"];
+const SUPPORTED_PROVIDERS = ["rtrt", "raceresult", "myraceresult"];
 if (!SUPPORTED_PROVIDERS.includes(provider)) {
   console.error(`Unknown provider: "${provider}". Supported: ${SUPPORTED_PROVIDERS.join(", ")}`);
   process.exit(1);
@@ -148,6 +175,16 @@ if (provider === "raceresult" && !raceDate) {
   process.exit(1);
 }
 
+if (provider === "myraceresult" && !myRaceUrl) {
+  console.error(`Error: --url is required for the myraceresult provider.\n`);
+  process.exit(1);
+}
+
+if (provider === "myraceresult" && !raceDate) {
+  console.error(`Error: --race-date <YYYY-MM-DD> is required for the myraceresult provider.\n`);
+  process.exit(1);
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -165,10 +202,12 @@ if (provider === "raceresult" && !raceDate) {
       forcedPoints,
       concurrency,
       fresh,
-      // raceresult
+      // raceresult / myraceresult
       url: myRaceUrl,
       apiUrl,
       raceDate,
+      // myraceresult
+      contest,
       // shared
       outputDir,
     });

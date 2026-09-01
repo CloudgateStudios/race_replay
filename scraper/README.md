@@ -23,6 +23,7 @@ scraper/
   providers/
     rtrt.mjs            ← RTRT.me (existing races)
     raceresult.mjs      ← raceresult.com / myrace.ai
+    myraceresult.mjs    ← my.raceresult.com (direct raceresult-hosted events)
   data/                 ← output CSVs and cached split JSON files
 ```
 
@@ -130,6 +131,56 @@ node scraper/racereplay.mjs cim-2025 --provider raceresult \
 
 ---
 
+### myraceresult races (my.raceresult.com)
+
+For races hosted directly on my.raceresult.com (not via myrace.ai). The event
+ID is in the URL — `https://my.raceresult.com/353495/` → ID is `353495`. Auth
+key and contest list are discovered automatically from the event config.
+
+Multi-contest events (Sprint, Duathlon, Aquabike, etc.) each need a separate
+scraper run with `--contest`.
+
+```bash
+node scraper/racereplay.mjs <slug> --provider myraceresult \
+  --url https://my.raceresult.com/<id>/ \
+  --race-date <YYYY-MM-DD> \
+  --contest <name>
+```
+
+Examples:
+
+```bash
+# Sprint contest — defaults to the first contest if --contest is omitted
+node scraper/racereplay.mjs naperville-sprint-2025 --provider myraceresult \
+  --url https://my.raceresult.com/353495/ \
+  --race-date 2025-08-03 \
+  --contest Sprint
+
+# Duathlon contest from the same event
+node scraper/racereplay.mjs naperville-duathlon-2025 --provider myraceresult \
+  --url https://my.raceresult.com/353495/ \
+  --race-date 2025-08-03 \
+  --contest Duathlon
+```
+
+**myraceresult flags:**
+
+```
+--url <url>           my.raceresult.com event URL. Required.
+--race-date <date>    Race date as YYYY-MM-DD. Required. Converts time-of-day
+                      split values to Unix epoch timestamps.
+--contest <name>      Contest ShowAs name (e.g. "Sprint", "Duathlon").
+                      Defaults to the first contest listed in the event config.
+--concurrency <n>     Parallel athlete detail fetches (default: 20).
+                      Each athlete requires one API call for TOD timestamps.
+```
+
+Unlike the `raceresult` provider which uses a single bulk API call, this provider
+fetches one detail view per athlete for TOD timestamps. At 20–30 concurrency,
+1,200 athletes resolve in ~3 seconds.
+
+---
+
 ### Shared flags (both providers)
 
 ```
@@ -208,6 +259,12 @@ a provider adds or removes intermediate checkpoints year to year.
 | California International | 2024 | cim-2024       | 2024-12-08 |
 | California International | 2025 | cim-2025       | 2025-12-07 |
 
+### myraceresult provider
+
+| Race                       | Year | Event ID | Contests                              | Race date  |
+| -------------------------- | ---- | -------- | ------------------------------------- | ---------- |
+| Naperville Sprint Triathlon | 2025 | 353495   | Sprint, Duathlon, Aquabike, Kids      | 2025-08-03 |
+
 ---
 
 ## Unit tests
@@ -241,12 +298,21 @@ epochTime[any_point] = startEpoch + chipSplitSeconds
 `startEpoch + swimSecs` as the "after" — the same before→after comparison
 used by every other leg.
 
-For raceresult races, time-of-day split values (either `HH:MM:SS` strings or
+For `raceresult` races, time-of-day split values (either `HH:MM:SS` strings or
 float seconds-since-midnight) are converted to Unix epoch using `--race-date`.
+
+For `myraceresult` races, TOD values come from per-athlete detail views
+(`HH:MM:SS` format) and are converted to epoch the same way.
 
 ---
 
 ## Verified results
+
+### 2025 Naperville Sprint Triathlon — Sprint (naperville-sprint-2025)
+
+1,233 athletes · 5 legs (Swim, Transition1, Bike, Transition2, Run) · all invariants pass ✅
+
+myraceresult provider · physical wave-start mode (1,232/1,233 start epochs matched)
 
 ### 2025 California International Marathon (cim-2025)
 

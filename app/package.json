@@ -37,15 +37,15 @@
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "depcheck": "^1.4.7",
-    "eslint": "^10.9.1",
-    "eslint-config-next": "16.3.3",
+    "eslint": "^10.10.0",
+    "eslint-config-next": "16.3.4",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^6",
-    "vitest": "^4.1.8"
+    "vitest": "^5.0.0"
   }
 }

@@ -77,8 +77,23 @@ export function normalizeName(name: string): string {
     .trim();
 }
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+// Number of parallel ingest workers. Each worker holds one pooled connection
+// for the duration of its per-athlete transaction, so the pg pool must be at
+// least this large — otherwise workers queue for a connection and Prisma
+// aborts the transaction with P2028 ("Unable to start a transaction in the
+// given time").
+const CONCURRENCY = 20;
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+  max: CONCURRENCY + 5, // headroom for the non-transactional queries around the worker pool
+});
 const prisma = new PrismaClient({ adapter });
+
+// Each athlete transaction makes ~6 sequential round trips to the database.
+// Over a remote (Neon) connection that easily exceeds Prisma's 2s default
+// maxWait/5s timeout once all workers are busy, so allow generous slack.
+const TX_OPTIONS = { maxWait: 30_000, timeout: 60_000 } as const;
 
 // ─── Arg parsing ─────────────────────────────────────────────────────────────
 
@@ -528,7 +543,6 @@ async function main() {
   // DB round trips that make large events (Chicago: 55k × 19 segments) very slow.
   // Each worker pulls from a shared queue, upserts the athlete, then upserts all
   // of its segments in a single Prisma transaction — reducing latency overhead.
-  const CONCURRENCY = 20;
   const queue = rows.filter((r) => rowToObj(headers, r)["Bib"]);
   const total = queue.length;
   let completed = 0;
@@ -640,7 +654,7 @@ async function main() {
             create: { athleteId: athlete.id, segmentId, ...segData },
           });
         }
-      });
+      }, TX_OPTIONS);
 
       if (isNew) created++;
       else updated++;

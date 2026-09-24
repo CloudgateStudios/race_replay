@@ -24,6 +24,7 @@ scraper/
     rtrt.mjs            ← RTRT.me (existing races)
     raceresult.mjs      ← raceresult.com / myrace.ai
     myraceresult.mjs    ← my.raceresult.com (direct raceresult-hosted events)
+    raceresults360.mjs  ← RaceResults 360 (Trinity Timing results widget)
   data/                 ← output CSVs and cached split JSON files
 ```
 
@@ -181,7 +182,42 @@ fetches one detail view per athlete for TOD timestamps. At 20–30 concurrency,
 
 ---
 
-### Shared flags (both providers)
+### raceresults360 races (Trinity Timing)
+
+For races on Trinity Timing's results page
+(`https://trinitytiming.com/results/#/race/<raceKey>/<event>/`), which embeds
+the RaceResults 360 widget. One paginated API call per 30 athletes; each
+record includes the athlete's start time and time-of-day at every leg.
+
+The API only answers requests carrying the timing company's account key and
+whitelisted Origin; the provider sends both (default account `trinitytiming`).
+Raw records include contact details such as email — the provider reads only
+the fields it needs and never writes those to disk.
+
+Each division group (Individuals, Relays, Aquabike, …) is a separate numbered
+event. Use `--events` to merge several into one output, e.g. `1,2` to match
+how my.raceresult.com groups Sprint individuals and relays together.
+
+```bash
+node scraper/racereplay.mjs naperville-sprint-2024 --provider raceresults360 \
+  --url "https://trinitytiming.com/results/#/race/xqLA2e/1/" \
+  --race-date 2024-08-04 \
+  --events 1,2
+```
+
+**raceresults360 flags:**
+
+```
+--url <url>           Results URL containing #/race/<raceKey>/. Required.
+--race-date <date>    Race date as YYYY-MM-DD. Required.
+--events <list>       Event numbers to merge (default: the event in the URL).
+--account <id>        RR360 account id (default: trinitytiming).
+--origin <url>        Whitelisted origin (default: https://<account>.com).
+```
+
+---
+
+### Shared flags (all providers)
 
 ```
 --output-dir <dir>    Write output here (default: scraper/data/)
@@ -265,6 +301,12 @@ a provider adds or removes intermediate checkpoints year to year.
 | -------------------------- | ---- | -------- | ------------------------------------- | ---------- |
 | Naperville Sprint Triathlon | 2025 | 353495   | Sprint, Duathlon, Aquabike, Kids      | 2025-08-03 |
 
+### raceresults360 provider
+
+| Race                        | Year | Race key | Events                                                    | Race date  |
+| --------------------------- | ---- | -------- | --------------------------------------------------------- | ---------- |
+| Naperville Sprint Triathlon | 2024 | xqLA2e   | 1 Individuals, 2 Relays, 3 Aquabike, 4 Duathlon, 5 Kids   | 2024-08-04 |
+
 ---
 
 ## Unit tests
@@ -314,6 +356,12 @@ For `myraceresult` races, TOD values come from per-athlete detail views
 ---
 
 ## Verified results
+
+### 2024 Naperville Sprint Triathlon — Individuals + Relays (naperville-sprint-2024)
+
+1,290 athletes · 1,280 finishers · 10 DNFs · 5 legs (Swim, Transition1, Bike, Transition2, Run) · all invariants pass ✅
+
+raceresults360 provider · physical start mode (1,290/1,290 start epochs matched) · `--verify` identical
 
 ### 2025 Naperville Sprint Triathlon — Sprint (naperville-sprint-2025)
 

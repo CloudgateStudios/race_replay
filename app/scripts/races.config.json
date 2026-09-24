@@ -61,5 +61,11 @@
       "BIKE": "Bike",
       "FINISH": "Run"
     }
+  },
+  "naperville-sprint-triathlon": {
+    "location": "Naperville, IL",
+    "country": "US",
+    "distanceType": "Sprint",
+    "segmentNames": { "Transition1": "T1", "Transition2": "T2" }
   }
 }

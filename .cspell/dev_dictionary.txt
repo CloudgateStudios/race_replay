@@ -1,4 +1,5 @@
 # Dev/tech terms specific to the RaceReplay stack
+ageondec
 antialiased
 arra
 autoincrement
@@ -16,10 +17,12 @@ econnrefused
 eventid
 fenwick
 finishtime
+flname
 fouc
 genderrank
 geolocation
 hsts
+listname
 neon
 nextjs
 noemit
@@ -37,6 +40,7 @@ prerender
 prerendering
 prisma
 myrace
+myraceresult
 raceid
 racereplay
 raceresult
@@ -47,6 +51,7 @@ serp
 shadcn
 tabular
 tailwindcss
+teamtype
 turbopack
 unvalidated
 upserted

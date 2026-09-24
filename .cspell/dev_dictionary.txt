@@ -44,6 +44,7 @@ myraceresult
 raceid
 racereplay
 raceresult
+raceresults
 rpad
 sameorigin
 segmentid
@@ -58,3 +59,6 @@ upserted
 upserting
 upserts
 woff
+trinitytiming
+FINALTM
+DIVP

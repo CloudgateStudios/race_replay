@@ -93,8 +93,8 @@ function headers(account, origin) {
   };
 }
 
-async function getJson(url, hdrs) {
-  const res = await fetch(url, { headers: hdrs });
+async function getJson(url, reqHeaders) {
+  const res = await fetch(url, { headers: reqHeaders });
   const data = await res.json().catch(() => null);
   if (!res.ok || data?.error || data?.message) {
     const msg = data?.error?.err ?? data?.message ?? `HTTP ${res.status}`;
@@ -103,11 +103,11 @@ async function getJson(url, hdrs) {
   return data;
 }
 
-async function fetchEventResults(raceKey, event, hdrs) {
+async function fetchEventResults(raceKey, event, reqHeaders) {
   const rows = [];
   let total = Infinity;
   for (let start = 0; start < total; start += PAGE_SIZE) {
-    const data = await getJson(`${BASE}/${raceKey}/${event}/results?start=${start}`, hdrs);
+    const data = await getJson(`${BASE}/${raceKey}/${event}/results?start=${start}`, reqHeaders);
     total = data.total ?? 0;
     rows.push(...(data.results ?? []));
     process.stdout.write(`   event ${event}: ${rows.length}/${total}\r`);
@@ -242,7 +242,7 @@ export async function fetchRaceData(eventId, opts) {
 
   const account = opts.account ?? "trinitytiming";
   const origin = opts.origin ?? `https://${account}.com`;
-  const hdrs = headers(account, origin);
+  const reqHeaders = headers(account, origin);
 
   const raceDateMs = new Date(`${raceDate}T00:00:00Z`).getTime();
   if (isNaN(raceDateMs)) throw new Error(`Invalid --race-date: ${raceDate}`);
@@ -250,7 +250,7 @@ export async function fetchRaceData(eventId, opts) {
   const { raceKey, event: urlEvent } = parseRaceUrl(url);
 
   console.log(`\n🔍 Fetching race ${raceKey}...`);
-  const race = await getJson(`${BASE}/${raceKey}`, hdrs);
+  const race = await getJson(`${BASE}/${raceKey}`, reqHeaders);
   console.log(`   Race: ${race.name} (${race.event_date})`);
   if (race.event_date && race.event_date !== raceDate) {
     console.warn(`   ⚠️  --race-date ${raceDate} differs from API event_date ${race.event_date}`);
@@ -269,7 +269,7 @@ export async function fetchRaceData(eventId, opts) {
   for (const e of events) {
     const divs = race.event_metadata?.[e]?.divisions ?? [];
     const isRelay = divs.some((d) => d in RELAY_DIVS);
-    const rows = await fetchEventResults(raceKey, e, hdrs);
+    const rows = await fetchEventResults(raceKey, e, reqHeaders);
     for (const row of rows) entries.push({ row, isRelay });
   }
   if (!entries.length) throw new Error("No athletes returned");

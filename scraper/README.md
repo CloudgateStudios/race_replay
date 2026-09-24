@@ -276,6 +276,13 @@ node scraper/test-algorithm.mjs
 Runs assertions on a hand-crafted dataset including DNF handling. Run before
 trusting output from a new race.
 
+```bash
+node scraper/test-myraceresult.mjs
+```
+
+Covers the myraceresult transform, including events whose detail views have
+extra timing mats (e.g. "InTran", "Announcer") that are not leg boundaries.
+
 ---
 
 ## How physical passing works

@@ -197,20 +197,23 @@ export function transformAthletes(listData, detailMap, raceDateMs) {
     if (startEpoch != null) startEpochs.set(bib, startEpoch);
 
     // Per-leg epoch times and durations
-    // Splits array: [Start, CheckpointA, CheckpointB, ..., Finish]
-    // Legs array:   [LegA, LegB, ..., LegN]  (Legs[i] ends at Splits[i+1])
+    // Splits can include extra timing mats that aren't leg boundaries (e.g.
+    // Naperville's "InTran" and "Announcer"), so Legs[i] does not line up with
+    // Splits[i+1]. Instead, use each leg's own duration and accumulate from the
+    // start TOD to get the leg's end time.
+    const legByName = new Map(legs.map((l) => [l.Name, l]));
     const legSecs   = {};
     const legEpochs = {};
     let   prevTod   = startTod;
 
-    for (let i = 0; i < legNames.length; i++) {
-      const legName  = legNames[i];
-      const endSplit = splits[i + 1] ?? null;
-      const tod      = endSplit?.Exists ? parseTod(endSplit.TOD) : null;
+    for (const legName of legNames) {
+      const leg  = legByName.get(legName);
+      const secs = leg?.Exists ? parseTod(leg.Time) : null;
 
-      if (tod != null && prevTod != null) {
+      if (secs != null && prevTod != null) {
+        const tod = prevTod + secs;
         legEpochs[legName] = raceDateSec + tod;
-        legSecs[legName]   = Math.max(0, Math.round(tod - prevTod));
+        legSecs[legName]   = Math.max(0, Math.round(secs));
         prevTod = tod;
       } else {
         legEpochs[legName] = null;

@@ -17,6 +17,7 @@ econnrefused
 eventid
 fenwick
 finishtime
+flname
 fouc
 genderrank
 geolocation
@@ -50,6 +51,7 @@ serp
 shadcn
 tabular
 tailwindcss
+teamtype
 turbopack
 unvalidated
 upserted

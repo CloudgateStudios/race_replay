@@ -10,7 +10,7 @@
  *
  * Provider selection:
  *   --provider <name>     Timing data source. Default: rtrt
- *                         Supported: rtrt, raceresult, myraceresult
+ *                         Supported: rtrt, raceresult, myraceresult, raceresults360
  *
  * ── rtrt provider ────────────────────────────────────────────────────────────
  *   Fetches from RTRT.me. Split data is fetched per-timing-point and cached
@@ -44,6 +44,16 @@
  *                         Defaults to the first contest listed in the event.
  *   --concurrency <n>     Athlete detail fetches in parallel (default: 20).
  *
+ * ── raceresults360 provider ──────────────────────────────────────────────────
+ *   Fetches from RaceResults 360 (the widget used by Trinity Timing).
+ *
+ *   --url <url>           Results URL containing #/race/<raceKey>/<event>/.
+ *   --race-date <date>    Race date as YYYY-MM-DD (required).
+ *   --events <list>       Comma-separated event numbers to merge (e.g. 1,2 for
+ *                         Individuals + Relays). Defaults to the URL's event.
+ *   --account <id>        RR360 account id (default: trinitytiming).
+ *   --origin <url>        Whitelisted origin (default: https://<account>.com).
+ *
  * ── shared options ────────────────────────────────────────────────────────────
  *   --output-dir <dir>    Directory for output files (default: scraper/data/).
  *   --verify              After the fast O(n log n) algorithm, also run the
@@ -69,6 +79,11 @@
  *     --url https://my.raceresult.com/353495/ \
  *     --race-date 2025-08-03 \
  *     --contest Sprint
+ *
+ *   # raceresults360 (Trinity Timing)
+ *   node scraper/racereplay.mjs naperville-sprint-2024 --provider raceresults360 \
+ *     --url "https://trinitytiming.com/results/#/race/xqLA2e/1/" \
+ *     --race-date 2024-08-04 --events 1,2
  */
 
 import fs from "fs/promises";
@@ -113,13 +128,18 @@ const raceDate = flag("--race-date");
 // myraceresult-specific
 const contest = flag("--contest");
 
+// raceresults360-specific
+const events = flag("--events");
+const account = flag("--account");
+const origin = flag("--origin");
+
 // ─── Usage ────────────────────────────────────────────────────────────────────
 
 if (!eventId) {
   console.error(`\
 Usage: node scraper/racereplay.mjs <event-id> [options]
 
-  --provider <name>     rtrt (default) | raceresult | myraceresult
+  --provider <name>     rtrt (default) | raceresult | myraceresult | raceresults360
 
 RTRT options:
   --appid <id>          Required for rtrt provider.
@@ -138,6 +158,13 @@ myraceresult options:
   --contest <name>      Contest name (e.g. "Sprint"). Defaults to first.
   --concurrency <n>     Parallel athlete fetches (default: 20).
 
+raceresults360 options:
+  --url <url>           Results URL with #/race/<raceKey>/<event>/.
+  --race-date <date>    Race date YYYY-MM-DD (required).
+  --events <list>       Event numbers to merge (e.g. 1,2). Default: URL's event.
+  --account <id>        RR360 account id (default: trinitytiming).
+  --origin <url>        Whitelisted origin (default: https://<account>.com).
+
 Shared options:
   --output-dir <dir>    Output directory (default: scraper/data/).
   --verify              Diff fast vs O(n²) reference algorithm.
@@ -154,7 +181,7 @@ Examples:
 
 // ─── Provider validation ──────────────────────────────────────────────────────
 
-const SUPPORTED_PROVIDERS = ["rtrt", "raceresult", "myraceresult"];
+const SUPPORTED_PROVIDERS = ["rtrt", "raceresult", "myraceresult", "raceresults360"];
 if (!SUPPORTED_PROVIDERS.includes(provider)) {
   console.error(`Unknown provider: "${provider}". Supported: ${SUPPORTED_PROVIDERS.join(", ")}`);
   process.exit(1);
@@ -172,6 +199,11 @@ if (provider === "raceresult" && !myRaceUrl && !apiUrl) {
 
 if (provider === "raceresult" && !raceDate) {
   console.error(`Error: --race-date <YYYY-MM-DD> is required for the raceresult provider.\n`);
+  process.exit(1);
+}
+
+if (provider === "raceresults360" && (!myRaceUrl || !raceDate)) {
+  console.error(`Error: --url and --race-date <YYYY-MM-DD> are required for the raceresults360 provider.\n`);
   process.exit(1);
 }
 
@@ -208,6 +240,10 @@ if (provider === "myraceresult" && !raceDate) {
       raceDate,
       // myraceresult
       contest,
+      // raceresults360
+      events,
+      account,
+      origin,
       // shared
       outputDir,
     });

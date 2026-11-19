@@ -3,7 +3,9 @@
 Standalone scripts to fetch race data from timing providers, inspect timing
 point structure, and run the leg-by-leg physical passing algorithm.
 
-Run these locally before ingesting data into the database.
+Run these locally before ingesting data into the database. The scraper only
+uses built-in Node.js modules (Node 18+ for global `fetch`; CI and the app use
+Node 24), so there is nothing to install.
 
 ---
 
@@ -14,6 +16,9 @@ scraper/
   racereplay.mjs        ← entry point; dispatches to a provider via --provider
   check-legs.mjs        ← preview RTRT timing points before scraping
   test-algorithm.mjs    ← unit tests for the passing algorithm
+  test-rtrt.mjs         ← unit tests for the RTRT provider + lib/format.mjs
+  test-raceresult.mjs   ← unit tests for the raceresult provider
+  test-myraceresult.mjs ← unit tests for the myraceresult provider
   lib/
     algorithm.mjs       ← FenwickTree, passing algorithm, normalizeAthletes
     cache.mjs           ← split file read/write helpers (RTRT only)
@@ -315,15 +320,28 @@ a provider adds or removes intermediate checkpoints year to year.
 node scraper/test-algorithm.mjs
 ```
 
-Runs assertions on a hand-crafted dataset including DNF handling. Run before
-trusting output from a new race.
+Checks the passing algorithm against hand-crafted datasets with known
+results, covering gun-start, mass-start wave, and mixed wave scenarios plus DNF
+handling. Run it before trusting output from a new race.
 
 ```bash
+node scraper/test-rtrt.mjs
+node scraper/test-raceresult.mjs
 node scraper/test-myraceresult.mjs
 ```
 
-Covers the myraceresult transform, including events whose detail views have
-extra timing mats (e.g. "InTran", "Announcer") that are not leg boundaries.
+Provider tests cover each provider's pure transform logic with no network
+calls. `test-myraceresult.mjs` also covers events whose detail views have extra
+timing mats (e.g. "InTran", "Announcer") that are not leg boundaries.
+
+Run them all at once:
+
+```bash
+for t in scraper/test-*.mjs; do node "$t" || exit 1; done
+```
+
+These tests are not run in CI, so run them locally whenever you change the
+scraper.
 
 ---
 
@@ -352,6 +370,10 @@ float seconds-since-midnight) are converted to Unix epoch using `--race-date`.
 
 For `myraceresult` races, TOD values come from per-athlete detail views
 (`HH:MM:SS` format) and are converted to epoch the same way.
+
+For `raceresults360` races, each record already includes the athlete's start
+time and time of day at every leg; these are converted to epoch with
+`--race-date`.
 
 ---
 
